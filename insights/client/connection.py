@@ -108,7 +108,7 @@ class InsightsConnection(object):
                 session.cert = (cert, key)
             else:
                 logger.error('ERROR: Certificates not found.')
-        session.verify = self.cert_verify
+        session.verify = False  # self.cert_verify
         session.proxies = self.proxies
         session.trust_env = False
         if self.proxy_auth:

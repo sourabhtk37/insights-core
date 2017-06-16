@@ -206,7 +206,7 @@ def set_up_options(parser):
     parser.add_option_group(group)
 
 
-def parse_config_file(conf_file):
+def parse_config_file(conf_file=constants.default_conf_file):
     """
     Parse the configuration from the file
     """

@@ -422,20 +422,14 @@ def _create_metadata_json(archives):
     return metadata
 
 
-def collect_data_and_upload(rc=0):
+def collect(rc=0):
     """
     All the heavy lifting done here
     Run through "targets" - could be just ONE (host, default) or ONE (container/image)
     """
     # initialize collection targets
     # for now we do either containers OR host -- not both at same time
-    if InsightsClient.options.container_mode:
-        logger.debug("Client running in container/image mode.")
-        logger.debug("Scanning for matching container/image.")
-        targets = get_targets()
-    else:
-        logger.debug("Host selected as scanning target.")
-        targets = constants.default_target
+    targets = constants.default_target
 
     # if there are no targets to scan then bail
     if not len(targets):
@@ -449,17 +443,17 @@ def collect_data_and_upload(rc=0):
     else:
         pconn = InsightsConnection()
 
-    # TODO: change these err msgs to be more meaningful , i.e.
-    # "could not determine login information"
-    if pconn:
-        try:
-            branch_info = pconn.branch_info()
-        except requests.ConnectionError:
-            branch_info = handle_branch_info_error(
-                "Could not connect to determine branch information")
-        except LookupError:
-            branch_info = handle_branch_info_error(
-                "Could not determine branch information")
+    try:
+        branch_info = pconn.branch_info()
+    except requests.ConnectionError:
+        raise
+        branch_info = handle_branch_info_error(
+            "Could not connect to determine branch information")
+    except LookupError:
+        raise
+        branch_info = handle_branch_info_error(
+            "Could not determine branch information")
+
     pc = InsightsConfig(pconn)
     tar_file = None
 
@@ -491,11 +485,7 @@ def collect_data_and_upload(rc=0):
                      ('--from-file' if InsightsClient.options.from_file else '--from-stdin'))
         sys.exit(1)
 
-    start = time.clock()
     collection_rules, rm_conf = pc.get_conf(InsightsClient.options.update, stdin_config)
-    collection_elapsed = (time.clock() - start)
-    logger.debug("Rules configuration loaded. Elapsed time: %s", collection_elapsed)
-
     individual_archives = []
 
     for t in targets:
@@ -508,47 +498,18 @@ def collect_data_and_upload(rc=0):
         archive_meta = {}
 
         try:
-            if t['type'] == 'docker_image':
-                container_connection = open_image(t['name'])
-                logging_name = 'Docker image ' + t['name']
-                archive_meta['docker_id'] = t['name']
-                archive_meta['display_name'] = docker_display_name(
-                    t['name'], t['type'].replace('docker_', ''))
-                logger.debug('Docker display_name: %s', archive_meta['display_name'])
-                logger.debug('Docker docker_id: %s', archive_meta['docker_id'])
-                if container_connection:
-                    mp = container_connection.get_fs()
-                else:
-                    logger.error('Could not open %s for analysis', logging_name)
-                    sys.exit(1)
-            elif t['type'] == 'docker_container':
-                container_connection = open_container(t['name'])
-                logging_name = 'Docker container ' + t['name']
-                archive_meta['docker_id'] = t['name']
-                archive_meta['display_name'] = docker_display_name(
-                    t['name'], t['type'].replace('docker_', ''))
-                logger.debug('Docker display_name: %s', archive_meta['display_name'])
-                logger.debug('Docker docker_id: %s', archive_meta['docker_id'])
-                if container_connection:
-                    mp = container_connection.get_fs()
-                else:
-                    logger.error('Could not open %s for analysis', logging_name)
-                    sys.exit(1)
-            elif t['type'] == 'host':
-                logging_name = determine_hostname()
-                archive_meta['display_name'] = determine_hostname(
-                    InsightsClient.options.display_name)
-            else:
-                logger.error('Unexpected analysis target: %s', t['type'])
-                sys.exit(1)
-
+            logging_name = determine_hostname()
+            archive_meta['display_name'] = determine_hostname(InsightsClient.options.display_name)
             archive_meta['type'] = t['type'].replace('docker_', '')
             archive_meta['product'] = 'Docker'
             archive_meta['system_id'] = generate_analysis_target_id(t['type'], t['name'])
 
-            collection_start = time.clock()
-            archive = InsightsArchive(compressor=InsightsClient.options.compressor if not InsightsClient.options.container_mode else "none",
-                                      target_name=t['name'])
+            if InsightsClient.options.container_mode:
+                compressor = "none"
+            else:
+                compressor = InsightsClient.options.compressor
+
+            archive = InsightsArchive(compressor=compressor, target_name=t['name'])
             atexit.register(_delete_archive, archive)
             dc = DataCollector(archive,
                                InsightsClient.config,
@@ -558,13 +519,6 @@ def collect_data_and_upload(rc=0):
 
             logger.info('Starting to collect Insights data for %s', logging_name)
             dc.run_collection(collection_rules, rm_conf, branch_info)
-            elapsed = (time.clock() - start)
-            logger.debug("Data collection complete. Elapsed time: %s", elapsed)
-
-            obfuscate = InsightsClient.config.getboolean(APP_NAME, "obfuscate")
-
-            # include rule refresh time in the duration
-            collection_duration = (time.clock() - collection_start) + collection_elapsed
 
             # add custom metadata about a host if provided by from_file
             # use in the OSE case
@@ -576,7 +530,7 @@ def collect_data_and_upload(rc=0):
 
             if InsightsClient.options.no_tar_file:
                 logger.info('See Insights data in %s', dc.archive.archive_dir)
-                return rc
+                return dc.archive.archive_dir
 
             tar_file = dc.done(collection_rules, rm_conf)
 
@@ -589,42 +543,12 @@ def collect_data_and_upload(rc=0):
             if container_connection:
                 container_connection.close()
 
-    # if multiple targets (container mode), add all archives to single archive
-    # if InsightsClient.options.container_mode:
-    if False: # we only run single collections now (not the uber archives), bypass this
-        full_archive = InsightsArchive(compressor=InsightsClient.options.compressor)
-        for a in individual_archives:
-            shutil.copy(a['tar_file'], full_archive.archive_dir)
-        # don't want insights_commands in meta archive
-        shutil.rmtree(full_archive.cmd_dir)
-        metadata = _create_metadata_json(individual_archives)
-        full_archive.add_metadata_to_archive(json.dumps(metadata), 'metadata.json')
-        full_tar_file = full_archive.create_tar_file(full_archive=True)
-    # if only one target (regular mode), just upload one
-    else:
-        full_archive = archive
-        full_tar_file = tar_file
-
-    if InsightsClient.options.offline or InsightsClient.options.no_upload:
-        handle_file_output(full_tar_file, full_archive)
-        return rc
-
-    # do the upload
-    rc = _do_upload(pconn, full_tar_file, logging_name, collection_duration)
-
-    if InsightsClient.options.keep_archive:
-        logger.info('Insights data retained in %s', full_tar_file)
-        return rc
-    if obfuscate:
-        logger.info('Obfuscated Insights data retained in %s',
-                    os.path.dirname(full_tar_file))
-    full_archive.delete_archive_dir()
-    return rc
+    return tar_file
 
 
-def _do_upload(pconn, tar_file, logging_name, collection_duration, rc=0):
-    # do the upload
-    logger.info('Uploading Insights data for %s, this may take a few minutes', logging_name)
+def upload(tar_file, collection_duration=None):
+    logger.info('Uploading Insights data. This may take a few minutes.')
+    pconn = InsightsConnection()
     for tries in range(InsightsClient.options.retries):
         upload = pconn.upload_archive(tar_file, collection_duration,
                                       cluster=generate_machine_id(
@@ -651,8 +575,6 @@ def _do_upload(pconn, tar_file, logging_name, collection_duration, rc=0):
                 logger.error("All attempts to upload have failed!")
                 logger.error("Please see %s for additional information",
                              constants.default_log_file)
-                rc = 1
-    return rc
 
 
 def handle_file_output(tar_file, archive):
@@ -702,14 +624,14 @@ def _main():
     global open_image, open_container, get_targets
     global run_in_container, insights_client_container_is_available
     global docker_display_name, container_image_links
-    if InsightsClient.options.container_mode == True:
+    if InsightsClient.options.container_mode:
         from containers import (open_image,
-                        open_container,
-                        get_targets,
-                        run_in_container,
-                        insights_client_container_is_available,
-                        docker_display_name,
-                        container_image_links)
+                                open_container,
+                                get_targets,
+                                run_in_container,
+                                insights_client_container_is_available,
+                                docker_display_name,
+                                container_image_links)
 
     # Handle all the options
     handle_startup()
