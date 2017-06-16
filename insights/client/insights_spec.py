@@ -6,7 +6,6 @@ import shlex
 import logging
 import six
 from tempfile import NamedTemporaryFile
-from utilities import determine_hostname
 from constants import InsightsConstants as constants
 
 logger = logging.getLogger(constants.app_name)

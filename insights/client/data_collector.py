@@ -237,7 +237,6 @@ class DataCollector(object):
             logger.debug('Spec metadata type "%s" not found in spec.', metadata_spec)
         logger.debug('Spec metadata collection finished.')
 
-
     def run_collection(self, conf, rm_conf, branch_info):
         '''
         Run specs and collect all the data
@@ -250,7 +249,7 @@ class DataCollector(object):
             except LookupError:
                 logger.debug('Could not parse remove.conf. Ignoring...')
 
-        if InsightsClient.options.run_specific_specs != None:
+        if InsightsClient.options.run_specific_specs is not None:
             logger.debug('Running specific specs %s', InsightsClient.options.run_specific_specs)
             for specific_spec in InsightsClient.options.run_specific_specs.split(','):
                 logger.debug('Running specific spec %s', specific_spec)
@@ -259,7 +258,6 @@ class DataCollector(object):
             return
 
         if 'specs' not in conf or InsightsClient.options.original_style_specs:
-        # if True:
             # old style collection
             self._run_old_collection(conf, rm_conf, exclude, branch_info)
             return

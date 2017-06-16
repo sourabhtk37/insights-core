@@ -6,7 +6,6 @@ import sys
 import os
 import json
 
-import traceback
 import logging
 from utilities import (determine_hostname,
                        generate_machine_id,
@@ -633,7 +632,7 @@ class InsightsConnection(object):
         machine_id = generate_machine_id()
         try:
             res = self.session.get(self.api_url + '/v1/systems/' + machine_id, timeout=10)
-        except requests.ConnectionError as e:
+        except requests.ConnectionError:
             # can't connect, run connection test
             logger.error('Connection timed out. Running connection test...')
             self.test_connection()

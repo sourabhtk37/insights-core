@@ -7,7 +7,6 @@ import optparse
 import os
 import requests
 import shutil
-import sys
 import time
 import traceback
 import atexit
@@ -113,7 +112,7 @@ def handle_startup():
         logger.error("Client running in container mode but no image/container specified via --only.")
         sys.exit(1)
 
-    if InsightsClient.options.only != None and len(InsightsClient.options.only) < 12:
+    if InsightsClient.options.only is not None and len(InsightsClient.options.only) < 12:
         logger.error("Image/Container ID must be atleast twelve characters long.")
         sys.exit(1)
 
@@ -457,14 +456,6 @@ def collect(rc=0):
     pc = InsightsConfig(pconn)
     tar_file = None
 
-    if InsightsClient.options.just_upload:
-        if not os.path.exists(InsightsClient.options.just_upload):
-            logger.error('No file %s', InsightsClient.options.just_upload)
-            return 1
-        tar_file = InsightsClient.options.just_upload
-        rc = _do_upload(pconn, tar_file, 'dummy', 0)
-        return rc
-
     # load config from stdin/file if specified
     try:
         stdin_config = {}
@@ -493,7 +484,6 @@ def collect(rc=0):
         archive = None
         container_connection = None
         mp = None
-        obfuscate = None
         # archive metadata
         archive_meta = {}
 
@@ -637,12 +627,18 @@ def _main():
     handle_startup()
 
     # Vaccuum up the data
-    rc = collect_data_and_upload()
+    try:
+        path = collect()
+        upload(path)
+        rc = 0
+    except:
+        rc = 1
 
     # Roll log over on successful upload
     if not rc:
         handler.doRollover()
     sys.exit(rc)
+
 
 if __name__ == '__main__':
     _main()
