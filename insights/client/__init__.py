@@ -11,11 +11,13 @@ APP_NAME = constants.app_name
 logger = logging.getLogger(APP_NAME)
 handler = None
 
+
 def get_versions():
     '''
     returns (dict): {'core': str, 'client_api': str}
     '''
     return {'core': get_core_version(), 'client_api': get_client_api_version()}
+
 
 def get_core_version():
     '''
