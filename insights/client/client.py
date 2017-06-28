@@ -6,7 +6,6 @@ import logging.handlers
 import os
 import shutil
 import time
-# import atexit
 from utilities import (generate_machine_id,
                        generate_analysis_target_id,
                        write_lastupload_file,
@@ -172,15 +171,8 @@ def register():
     return pconn.register()
 
 
-def _delete_archive(archive):
-    # delete archive on unexpected exit
-    if not (InsightsClient.options.keep_archive or
-            InsightsClient.options.offline or
-            InsightsClient.options.no_upload or
-            InsightsClient.options.no_tar_file or
-            InsightsClient.config.getboolean(APP_NAME, "obfuscate")):
-        archive.delete_tmp_dir()
-        archive.delete_archive_file()
+def handle_registration():
+    return {}
 
 
 def fetch_rules():
@@ -253,7 +245,6 @@ def collect(rc=0):
                 compressor = InsightsClient.options.compressor
 
             archive = InsightsArchive(compressor=compressor, target_name=t['name'])
-            # atexit.register(_delete_archive, archive)
             dc = DataCollector(archive,
                                InsightsClient.config,
                                mountpoint=mp,
@@ -327,7 +318,6 @@ def upload(tar_file, collection_duration=None):
 
 def delete_archive(path):
     import os
-    import shutil
     removed_archive = False
 
     try:
@@ -346,13 +336,3 @@ def delete_archive(path):
         logger.info("Error removing %s", path)
 
     return removed_archive
-
-
-def handle_file_output(tar_file, archive):
-    if InsightsClient.options.to_stdout:
-        shutil.copyfileobj(open(tar_file, 'rb'), sys.stdout)
-        archive.delete_tmp_dir()
-        archive.delete_archive_dir()
-        archive.delete_archive_file()
-    else:
-        logger.info('See Insights data in %s', tar_file)
