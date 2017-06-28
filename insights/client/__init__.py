@@ -15,8 +15,8 @@ handler = None
 class InsightsClientApi(object):
 
     def __init__(self,
-            options=None,
-            config=None):
+                 options=None,
+                 config=None):
         """
             Intialize an instance of the Insights Client API for the Core
             params:
@@ -36,8 +36,8 @@ class InsightsClientApi(object):
         if config:
             for new_config_var in config:
                 InsightsClient.config.set(constants.app_name,
-                        new_config_var,
-                        config[new_config_var])
+                                          new_config_var,
+                                          config[new_config_var])
 
         # Set up logging
         client.set_up_logging()
@@ -112,9 +112,9 @@ class InsightsClientApi(object):
             return results
 
     def fetch(self,
-            egg_url=constants.egg_path,
-            force=False,
-            verbose=False):
+              egg_url=constants.egg_path,
+              force=False,
+              verbose=False):
         """
             returns (str): path to new egg.  None if no update.
         """
@@ -192,8 +192,8 @@ class InsightsClientApi(object):
             return None
 
     def verify(self,
-            egg_path,
-            gpg_key=constants.default_egg_gpg_key):
+               egg_path,
+               gpg_key=constants.default_egg_gpg_key):
         """
             returns (dict): {'gpg': if the egg checks out,
                              'stderr': error message if present,
@@ -207,28 +207,23 @@ class InsightsClientApi(object):
             rc = process.returncode
             success = True if rc == 0 else False
             return {'gpg': success,
-                'stderr': stderr,
-                'stdout': stdout,
-                'rc': rc}
+                    'stderr': stderr,
+                    'stdout': stdout,
+                    'rc': rc}
         else:
             return {'gpg': False,
-                'stderr': 'Must specify a valid core and gpg key.',
-                'stdout': 'Must specify a valid core and gpg key.',
-                'rc': 1}
+                    'stderr': 'Must specify a valid core and gpg key.',
+                    'stdout': 'Must specify a valid core and gpg key.',
+                    'rc': 1}
 
-    def fetch_rules(self,
-            options=None,
-            config=None):
+    def fetch_rules(self, options=None, config=None):
         """
             returns (dict): new client rules
         """
         try_auto_configuration()
         return client.fetch_rules()
 
-    def collect(self,
-            format="json",
-            options=None,
-            config=None):
+    def collect(self, format="json", options=None, config=None):
         """
             returns (str, json): will return a string path to archive, or json facts
         """
@@ -272,3 +267,8 @@ class InsightsClientApi(object):
             returns (bool): successful archive deletion
         """
         return client.delete_archive(path)
+
+
+def run():
+    c = InsightsClientApi()
+    c.run()
