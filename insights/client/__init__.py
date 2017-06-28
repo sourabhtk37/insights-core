@@ -17,8 +17,19 @@ class InsightsClientApi(object):
     def __init__(self,
             options=None,
             config=None):
+        """
+            Intialize an instance of the Insights Client API for the Core
+            params:
+                (optional) options=dict
+                (optional) config=dict
+            returns:
+                InsightsClientApi()
+        """
 
+        # Setup the base config and options
         InsightsClient.config, InsightsClient.options = self.parse_options()
+
+        # Overwrite anything passed in
         if options:
             for key in options:
                 setattr(InsightsClient.options, key, options[key])
@@ -28,19 +39,19 @@ class InsightsClientApi(object):
                         new_config_var,
                         config[new_config_var])
 
+        # Set up logging
         client.set_up_logging()
 
-    def version(self):
-        """
-        returns (dict): {'core': str,
-                        'client_api': str}
-        """
-        from .. import get_nvr
-        core_version = get_nvr()
-        client_api_version = constants.version
+        # Disable GPG verification
+        if InsightsClient.options.no_gpg:
+            logger.warn("WARNING: GPG VERIFICATION DISABLED")
+            InsightsClient.config.set(APP_NAME, 'gpg', 'False')
 
-        return {'core': core_version,
-            'client_api': client_api_version}
+        # Log config except the password
+        # and proxy as it might have a pw as well
+        for item, value in InsightsClient.config.items(APP_NAME):
+            if item != 'password' and item != 'proxy':
+                logger.debug("%s:%s", item, value)
 
     def parse_options(self):
         """
@@ -60,6 +71,18 @@ class InsightsClientApi(object):
         if len(args) > 0:
             parser.error("Unknown arguments: %s" % args)
         return parse_config_file(options.conf), options
+
+    def version(self):
+        """
+        returns (dict): {'core': str,
+                        'client_api': str}
+        """
+        from .. import get_nvr
+        core_version = get_nvr()
+        client_api_version = constants.version
+
+        return {'core': core_version,
+            'client_api': client_api_version}
 
     def run(self,
             egg_url=constants.egg_path,
@@ -211,13 +234,25 @@ class InsightsClientApi(object):
         """
         return client.collect()
 
+    def register(self, force_register=False):
+        """
+        returns (json): {'success': bool,
+                        'machine-id': uuid from API,
+                        'response': response from API,
+                        'code': http code}
+        """
+        try_auto_configuration()
+        if force_register:
+            setattr(InsightsClient.options, 'reregister', True)
+            setattr(InsightsClient.options, 'register', True)
+        return client.handle_registration()
+
     def upload(self, path):
         """
             returns (int): upload status code
         """
         try_auto_configuration()
         return client.upload(path)
-
 
     def get_last_upload_results(self):
         """
