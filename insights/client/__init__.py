@@ -91,24 +91,54 @@ class InsightsClientApi(object):
             skip_update=False,
             skip_verify=False,
             skip_upload=False,
-            force_fetch=False):
+            force_fetch=False,
+            force_register=False):
         """
             do everything
         """
         new_egg = None
         verification = True
         results = None
+        registration = None
+
+        # Update things
         if not skip_update:
             new_egg = self.fetch(egg_url, force_fetch)
+            logger.debug('Fetching new core: %s', new_egg)
+
+        # Verify things
         if new_egg and not skip_verify:
             verification = self.verify(new_egg, gpg_key)
+            logger.debug('Core was verified: %s', verification)
+
+        # Register
+        is_registered = self.get_registration_information()['is_registered']
+        logger.debug('System is registered: %s', is_registered)
+        if not InsightsClient.options.offline and not is_registered:
+            registration = self.register(force_register)
+            is_registered = registration['registration']['status']
+            logger.debug('Registration response: %s', registration)
+            logger.debug('System is now registered: %s', is_registered)
+
+        # Collect things
         if verification:
+            logger.debug('New Core was verified. Collecting information.')
             results = self.collect(collection_format)
+            logger.debug('Results: %s', results)
         else:
+            logger.debug('New Core was not verified, not collecting information.')
             results = False
-        if not skip_upload:
-            return self.upload(results)
+
+        # Upload things
+        if not skip_upload and not InsightsClient.options.no_upload and not InsightsClient.options.offline and is_registered:
+            logger.debug('Not skipping upload, or running offline.')
+            logger.debug('System is registered, proceeding with upload.')
+            upload_results = self.upload(results)
+            logger.debug('Upload results: %s', upload_results)
         else:
+            logger.debug('Skipping upload, running offline, or system is not properly registered.')
+            logger.debug('Skipping upload.')
+            logger.debug('Insights results: %s', results)
             return results
 
     def fetch(self,
@@ -248,8 +278,10 @@ class InsightsClientApi(object):
                         'response': response from API}
         """
         try_auto_configuration()
+        registration_status = client.get_registration_status()
         return {'machine-id': client.get_machine_id(),
-                'registration_status': client.get_registration_status()}
+                'registration_status': registration_status,
+                'is_registered': registration_status['status']}
 
     def upload(self, path):
         """
