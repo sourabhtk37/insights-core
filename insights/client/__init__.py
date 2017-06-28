@@ -237,10 +237,19 @@ class InsightsClientApi(object):
                         'code': http code}
         """
         try_auto_configuration()
+        setattr(InsightsClient.options, 'register', True)
         if force_register:
             setattr(InsightsClient.options, 'reregister', True)
-            setattr(InsightsClient.options, 'register', True)
         return client.handle_registration()
+
+    def get_registration_information(self):
+        """
+        returns (json): {'machine-id': uuid from API,
+                        'response': response from API}
+        """
+        try_auto_configuration()
+        return {'machine-id': client.get_machine_id(),
+                'registration_status': client.get_registration_status()}
 
     def upload(self, path):
         """

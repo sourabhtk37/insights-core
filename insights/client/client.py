@@ -1,5 +1,4 @@
 import sys
-import getpass
 import json
 import logging
 import logging.handlers
@@ -14,7 +13,7 @@ from utilities import (generate_machine_id,
                        delete_registered_file,
                        delete_unregistered_file,
                        determine_hostname,
-                       modify_config_file)
+                       delete_machine_id)
 from collection_rules import InsightsConfig
 from data_collector import DataCollector
 from connection import InsightsConnection
@@ -143,6 +142,7 @@ def try_register():
                     hostname, display_name, group)
     if message:
         logger.info(message)
+    return reg_check, message, hostname, group, display_name
 
 
 def register():
@@ -152,27 +152,48 @@ def register():
     username = InsightsClient.config.get(APP_NAME, 'username')
     password = InsightsClient.config.get(APP_NAME, 'password')
     authmethod = InsightsClient.config.get(APP_NAME, 'authmethod')
-    # TODO validate this is boolean somewhere in config load
     auto_config = InsightsClient.config.getboolean(APP_NAME, 'auto_config')
     if not username and not password and not auto_config and authmethod == 'BASIC':
-        print 'Please enter your Red Hat Customer Portal Credentials'
-        sys.stdout.write('Username: ')
-        username = raw_input().strip()
-        password = getpass.getpass()
-        sys.stdout.write('Would you like to save these credentials? (y/n) ')
-        save = raw_input().strip()
-        InsightsClient.config.set(APP_NAME, 'username', username)
-        InsightsClient.config.set(APP_NAME, 'password', password)
-        logger.debug('savestr: %s', save)
-        if save.lower() == 'y' or save.lower() == 'yes':
-            logger.debug('Writing user/pass to config')
-            modify_config_file({'username': username, 'password': password})
+        logger.debug('Username and password must be defined in configuration file with BASIC authentication method.')
+        return False
     pconn = InsightsConnection()
     return pconn.register()
 
 
 def handle_registration():
-    return {}
+    """
+        returns (json): {'success': bool,
+                        'machine-id': uuid from API,
+                        'response': response from API,
+                        'code': http code}
+    """
+    # force-reregister -- remove machine-id files and registration files
+    # before trying to register again
+    new = False
+    if InsightsClient.options.reregister:
+        logger.debug('Re-register set, forcing registration.')
+        new = True
+        InsightsClient.options.register = True
+        delete_registered_file()
+        delete_unregistered_file()
+        delete_machine_id()
+    logger.debug('Machine-id: %s', generate_machine_id(new))
+
+    logger.debug('Trying registration.')
+    registration = try_register()
+    msg, is_registered = _is_client_registered()
+
+    return {'success': is_registered,
+            'machine-id': generate_machine_id(),
+            'registration': registration}
+
+
+def get_machine_id():
+    return generate_machine_id()
+
+
+def get_registration_status():
+    return registration_check()
 
 
 def fetch_rules():
