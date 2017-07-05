@@ -42,15 +42,6 @@ def determine_hostname(display_name=None):
         return socket_gethostname
 
 
-def _write_machine_id(machine_id, destination_file):
-    """
-    Write machine-id (or docker-group-id) out to disk
-    """
-    logger.debug("Creating %s", destination_file)
-    with open(destination_file, "w") as machine_id_file:
-        machine_id_file.write(machine_id)
-
-
 def get_time():
     return datetime.datetime.isoformat(datetime.datetime.now())
 
@@ -59,40 +50,27 @@ def write_unregistered_file(date=None):
     """
     Write .unregistered out to disk
     """
-    delete_registered_file()
+    write_to_disk(constants.registered_file, delete=True)
     rc = 0
     if date is None:
         date = get_time()
     else:
         rc = 1
 
-    unreg = file(constants.unregistered_file, 'w')
-    unreg.write(str(date))
+    write_to_disk(constants.unregistered_file, content=str(date))
     return rc
 
 
-def write_registered_file():
+def write_to_disk(filename, delete=False, content=get_time()):
     """
-    Write .registered out to disk
+    Write filename out to disk
     """
-    reg = file(constants.registered_file, 'w')
-    reg.write(get_time())
-
-
-def delete_registered_file():
-    """
-    Remove the .registered file if we are doing a register
-    """
-    if os.path.isfile(constants.registered_file):
-        os.remove(constants.registered_file)
-
-
-def delete_unregistered_file():
-    """
-    Remove the .unregistered file if we are doing a register
-    """
-    if os.path.isfile(constants.unregistered_file):
-        os.remove(constants.unregistered_file)
+    if delete:
+        if os.path.isfile(filename):
+            os.remove(filename)
+    else:
+        with open(filename, 'w') as f:
+            f.write(content)
 
 
 def generate_machine_id(new=False,
@@ -116,16 +94,9 @@ def generate_machine_id(new=False,
     else:
         logger.debug('Could not find %s file, creating', logging_name)
         machine_id = str(uuid.uuid4())
-        _write_machine_id(machine_id, destination_file)
+        logger.debug("Creating %s", destination_file)
+        write_to_disk(destination_file, content=machine_id)
     return str(machine_id).strip()
-
-
-def delete_machine_id():
-    '''
-    Only for force-reregister
-    '''
-    if os.path.isfile(constants.machine_id_file):
-        os.remove(constants.machine_id_file)
 
 
 def generate_analysis_target_id(analysis_target, name):
@@ -193,24 +164,16 @@ def _expand_paths(path):
         logger.debug("Could not expand %s", path)
 
 
-def write_lastupload_file():
-    """
-    Write .lastupload out to disk
-    """
-    reg = file(constants.lastupload_file, 'w')
-    reg.write(get_time())
-
-
-def validate_remove_file():
+def validate_remove_file(remove_file=constants.collection_remove_file):
     """
     Validate the remove file
     """
     import stat
-    if not os.path.isfile(constants.collection_remove_file):
+    if not os.path.isfile(remove_file):
         logger.warn("WARN: Remove file does not exist")
         return False
     # Make sure permissions are 600
-    mode = stat.S_IMODE(os.stat(constants.collection_remove_file).st_mode)
+    mode = stat.S_IMODE(os.stat(remove_file).st_mode)
     if not mode == 0o600:
         logger.error("ERROR: Invalid remove file permissions"
                      "Expected 0600 got %s" % oct(mode))
@@ -218,10 +181,10 @@ def validate_remove_file():
     else:
         print "Correct file permissions"
 
-    if os.path.isfile(constants.collection_remove_file):
+    if os.path.isfile(remove_file):
         from ConfigParser import RawConfigParser
         parsedconfig = RawConfigParser()
-        parsedconfig.read(constants.collection_remove_file)
+        parsedconfig.read(remove_file)
         rm_conf = {}
         for item, value in parsedconfig.items('remove'):
             rm_conf[item] = value.strip().split(',')
@@ -240,8 +203,7 @@ def write_data_to_file(data, filepath):
     except OSError:
         pass
 
-    with open(filepath, 'w') as _file:
-        _file.write(data.encode('utf8'))
+    write_to_disk(filepath, content=data.encode('utf8'))
 
 
 def magic_plan_b(filename):
@@ -251,7 +213,6 @@ def magic_plan_b(filename):
     for whatever reason
     '''
     import shlex
-    from subprocess import PIPE
     cmd = shlex.split('file --mime-type --mime-encoding ' + filename)
     stdout, stderr = Popen(cmd, stdout=PIPE).communicate()
     mime_str = stdout.split(filename + ': ')[1].strip()
@@ -283,5 +244,4 @@ def modify_config_file(updates):
         cmd = cmd + '-e \'s/^#*{key}.*=.*$/{key}={value}/\' '.format(key=key, value=updates[key])
     cmd = cmd + constants.default_conf_file
     status = run_command_get_output(cmd)
-    with open(constants.default_conf_file, 'w') as config_file:
-        config_file.write(status['output'])
+    write_to_disk(constants.default_conf_file, content=status['output'])
