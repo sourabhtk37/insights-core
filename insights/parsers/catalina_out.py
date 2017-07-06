@@ -64,10 +64,11 @@ class CatalinaOut(LogFileOutput):
             lines(list): the list of log lines to search (e.g. from a get).
                 If not supplied, all available lines are searched.
 
-        Returns:
-            (list): The list of log lines with time stamps after the given
-            date and time.  Lines after the time stamped lines are considered
-            to be continuations of the previous line and are included if the
-            previous line's timestamp is after the given timestamp.
+        Yields:
+            Log lines with time stamps after the given date and time, in the
+            same format they were supplied.  Lines after the time stamped
+            lines are considered to be continuations of the previous line and
+            are included if the previous line's timestamp is after the given
+            timestamp.
         """
         return super(CatalinaOut, self).get_after(timestamp, lines, '%b %d, %Y %I:%M:%S %p')
