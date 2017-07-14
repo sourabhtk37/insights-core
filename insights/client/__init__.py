@@ -122,8 +122,9 @@ class InsightsClientApi(object):
             logger.debug('Core was verified: %s', verification)
 
         # Need to install the new Core here
-        if new_egg and verficiation:
+        if new_egg and verification:
             installation = self.install(new_egg)
+            logger.debug('Core installation: %s', installation)
 
         # Register
         is_registered = self.get_registration_information()['is_registered']
