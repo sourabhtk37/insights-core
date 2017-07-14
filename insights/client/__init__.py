@@ -259,13 +259,12 @@ class InsightsClientApi(object):
 
     def install(self, new_egg):
         """
-        returns (dict): {'success': True if the new core was installed successfull else False,
-                         'installation': easy_install response}
+        returns (dict): {'success': True if the new core was installed successfull else False}
         """
         success = False
         if not new_egg:
             logger.debug('Must provide a valid Core installation path.')
-            return {'success': success, 'installation': 'Must provide a valid Core installation path.'}
+            return {'success': success}
 
         logger.debug("Installing the new Core %s", new_egg)
 
@@ -274,8 +273,7 @@ class InsightsClientApi(object):
 
         # hard-coded success, need some manual checks here
         # because EASY_INSTALL RETURNS NOTHING
-        if installation:
-            success = True
+        success = True
 
         return {'success': success}
         
