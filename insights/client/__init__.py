@@ -125,6 +125,12 @@ class InsightsClientApi(object):
         if new_egg and verification:
             installation = self.install(new_egg)
             logger.debug('Core installation: %s', installation)
+            # Return 42 to the wrapper
+            # Indicates we want to stop execution and start the new Client
+            if installation['success']:
+                return 42
+            else:
+                logger.debug('There was an error installing the new core.')
 
         # Register
         is_registered = self.get_registration_information()['is_registered']
@@ -251,11 +257,28 @@ class InsightsClientApi(object):
                     'stdout': 'Must specify a valid core and gpg key.',
                     'rc': 1}
 
-    def install(self):
+    def install(self, new_egg):
         """
-        returns (): something
+        returns (dict): {'success': True if the new core was installed successfull else False,
+                         'installation': easy_install response}
         """
-        pass
+        success = False
+        if not new_egg:
+            logger.debug('Must provide a valid Core installation path.')
+            return {'success': success, 'installation': 'Must provide a valid Core installation path.'}
+
+        logger.debug("Installing the new Core %s", new_egg)
+
+        from setuptools.command import easy_install
+        easy_install.main(["-U", new_egg]) # WHY DOESNT THIS RETURN ANYTHING
+
+        # hard-coded success, need some manual checks here
+        # because EASY_INSTALL RETURNS NOTHING
+        if installation:
+            success = True
+
+        return {'success': success}
+        
 
     def fetch_rules(self, options=None, config=None):
         """
