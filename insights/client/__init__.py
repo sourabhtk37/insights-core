@@ -269,14 +269,15 @@ class InsightsClientApi(object):
         logger.debug("Installing the new Core %s", new_egg)
 
         from setuptools.command import easy_install
-        easy_install.main(["-U", new_egg]) # WHY DOESNT THIS RETURN ANYTHING
-
-        # hard-coded success, need some manual checks here
-        # because EASY_INSTALL RETURNS NOTHING
-        success = True
+        try:
+            easy_install.main(["-U", new_egg])  # WHY DOESNT THIS RETURN ANYTHING
+            success = True
+        except:
+            logger.debug("There was an issue installing the new Core.")
+            logger.debug("Please ensure a proper path to the Core.")
+            logger.debug("Please ensure you are running as root, or a user with root privileges.")
 
         return {'success': success}
-        
 
     def fetch_rules(self, options=None, config=None):
         """
