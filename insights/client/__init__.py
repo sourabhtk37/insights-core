@@ -121,6 +121,10 @@ class InsightsClientApi(object):
             verification = self.verify(new_egg, gpg_key)
             logger.debug('Core was verified: %s', verification)
 
+        # Need to install the new Core here
+        if new_egg and verficiation:
+            installation = self.install(new_egg)
+
         # Register
         is_registered = self.get_registration_information()['is_registered']
         logger.debug('System is registered: %s', is_registered)
@@ -172,6 +176,7 @@ class InsightsClientApi(object):
         # If the etag was found and we are not force fetching
         # Then add it to the request
         kwargs = {"verify": constants.default_ca_file}
+        logger.debug("Adding %s to cert verification.", constants.default_ca_file)
         if current_etag and not force:
             logger.debug('Requesting new core with etag %s', current_etag)
             kwargs["headers"] = {'If-None-Match': current_etag}
@@ -244,6 +249,12 @@ class InsightsClientApi(object):
                     'stderr': 'Must specify a valid core and gpg key.',
                     'stdout': 'Must specify a valid core and gpg key.',
                     'rc': 1}
+
+    def install(self):
+        """
+        returns (): something
+        """
+        pass
 
     def fetch_rules(self, options=None, config=None):
         """
