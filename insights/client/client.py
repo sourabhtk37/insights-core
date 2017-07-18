@@ -370,7 +370,7 @@ def upload(tar_file, collection_duration=None):
                 insights_facts['last_upload'] = json.loads(upload.text)
 
                 from auto_config import (_try_satellite6_configuration,
-                                        _try_satellite5_configuration)
+                                         _try_satellite5_configuration)
 
                 sat6 = _try_satellite6_configuration()
                 sat5 = None
