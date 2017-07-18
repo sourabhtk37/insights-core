@@ -73,9 +73,6 @@ def set_up_logging():
 
         # Send anything INFO+ to stdout and log
         stdout_handler = logging.StreamHandler(sys.stdout)
-        stderr_handler = logging.StreamHandler(sys.stderr)
-        stderr_handler.setLevel(logging.ERROR)
-        logging.root.addHandler(stderr_handler)
         if not opts.verbose:
             stdout_handler.setLevel(logging.INFO)
         if opts.quiet:
