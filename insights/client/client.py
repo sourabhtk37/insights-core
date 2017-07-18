@@ -93,12 +93,10 @@ def set_up_logging():
         else:
             config_level = conf.get(APP_NAME, 'loglevel')
 
-        valid_levels = ['ERROR', 'DEBUG', 'INFO', 'WARNING', 'CRITICAL']
-        if config_level in valid_levels:
-            init_log_level = logging.getLevelName(config_level)
-        else:
+        init_log_level = logging.getLevelName(config_level)
+        if type(init_log_level) in (str, unicode):
             print "Invalid log level %s, defaulting to DEBUG" % config_level
-            init_log_level = logging.getLevelName("DEBUG")
+            init_log_level = logging.DEBUG
 
         logger.setLevel(init_log_level)
         logging.root.setLevel(init_log_level)
