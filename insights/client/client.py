@@ -51,40 +51,36 @@ def parse_options():
 
 def set_up_logging():
     # TODO: come back to this
-    """
-    Initialize Logging
-    """
     global handler
     if not handler:
+        # Just to reduce amount of text
         log_dir = constants.log_dir
+        opts, conf = InsightsClient.options, InsightsClient.config
+
         if not os.path.exists(log_dir):
             os.makedirs(log_dir, 0700)
         logging_file = os.path.join(log_dir, APP_NAME + '.log')
-        if InsightsClient.config.get(APP_NAME, 'logging_file'):
-            logging_file = InsightsClient.config.get(APP_NAME, 'logging_file')
-        if InsightsClient.options.logging_file:
-            logging_file = InsightsClient.options.logging_file
-        valid_levels = ['ERROR', 'DEBUG', 'INFO', 'WARNING', 'CRITICAL']
-        handler = logging.handlers.RotatingFileHandler(logging_file,
-                                                       backupCount=3)
+        if conf.get(APP_NAME, 'logging_file'):
+            logging_file = conf.get(APP_NAME, 'logging_file')
+        if opts.logging_file:
+            logging_file = opts.logging_file
+        handler = logging.handlers.RotatingFileHandler(logging_file, backupCount=3)
 
         # from_stdin mode implies to_stdout
-        InsightsClient.options.to_stdout = (InsightsClient.options.to_stdout or
-                                            InsightsClient.options.from_stdin or
-                                            InsightsClient.options.from_file)
-        if InsightsClient.options.to_stdout and not InsightsClient.options.verbose:
-            InsightsClient.options.quiet = True
+        opts.to_stdout = (opts.to_stdout or opts.from_stdin or opts.from_file)
+        if opts.to_stdout and not opts.verbose:
+            opts.quiet = True
 
         # Send anything INFO+ to stdout and log
         stdout_handler = logging.StreamHandler(sys.stdout)
         stderr_handler = logging.StreamHandler(sys.stderr)
         stderr_handler.setLevel(logging.ERROR)
         logging.root.addHandler(stderr_handler)
-        if not InsightsClient.options.verbose:
+        if not opts.verbose:
             stdout_handler.setLevel(logging.INFO)
-        if InsightsClient.options.quiet:
+        if opts.quiet:
             stdout_handler.setLevel(logging.ERROR)
-        if not InsightsClient.options.silent:
+        if not opts.silent:
             logging.root.addHandler(stdout_handler)
 
         logging.root.addHandler(handler)
@@ -92,11 +88,12 @@ def set_up_logging():
         formatter = logging.Formatter(LOG_FORMAT)
         handler.setFormatter(formatter)
         logging.root.setLevel(logging.WARNING)
-        if InsightsClient.options.verbose:
+        if opts.verbose:
             config_level = 'DEBUG'
         else:
-            config_level = InsightsClient.config.get(APP_NAME, 'loglevel')
+            config_level = conf.get(APP_NAME, 'loglevel')
 
+        valid_levels = ['ERROR', 'DEBUG', 'INFO', 'WARNING', 'CRITICAL']
         if config_level in valid_levels:
             init_log_level = logging.getLevelName(config_level)
         else:
