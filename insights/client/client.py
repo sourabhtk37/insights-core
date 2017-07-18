@@ -88,10 +88,7 @@ def set_up_logging():
         formatter = logging.Formatter(LOG_FORMAT)
         handler.setFormatter(formatter)
         logging.root.setLevel(logging.WARNING)
-        if opts.verbose:
-            config_level = 'DEBUG'
-        else:
-            config_level = conf.get(APP_NAME, 'loglevel')
+        config_level = 'DEBUG' if opts.verbose else conf.get(APP_NAME, 'loglevel')
 
         init_log_level = logging.getLevelName(config_level)
         if type(init_log_level) in (str, unicode):
