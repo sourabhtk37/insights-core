@@ -61,15 +61,18 @@ def get_file_handler(opts, conf):
 
 
 def get_console_handler(opts):
-    # Send anything INFO+ to stdout and log
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    if not opts.verbose:
-        stdout_handler.setLevel(logging.INFO)
-    if opts.quiet:
-        stdout_handler.setLevel(logging.ERROR)
+    if opts.silent:
+        target_level = logging.NOTSET
+    elif opts.to_stdout and not opts.verbose:
+        target_level = logging.ERROR
+    elif opts.verbose:
+        target_level = logging.DEUBG
+    else:
+        target_level = logging.INFO
 
-    formatter = logging.Formatter(LOG_FORMAT)
-    stdout_handler.setFormatter(formatter)
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+    stdout_handler.setLevel(target_level)
 
     return stdout_handler
 
@@ -93,12 +96,8 @@ def set_up_logging():
 
         # from_stdin mode implies to_stdout
         opts.to_stdout = (opts.to_stdout or opts.from_stdin or opts.from_file)
-        if opts.to_stdout and not opts.verbose:
-            opts.quiet = True
 
-        if not opts.silent:
-            logging.root.addHandler(get_console_handler())
-
+        logging.root.addHandler(get_console_handler())
         logging.root.addHandler(get_file_handler(opts, conf))
         configure_level(opts, conf)
         logger.debug("Logging initialized")
