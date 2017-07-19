@@ -61,6 +61,20 @@ def get_file_handler(opts, conf):
     return logging.handlers.RotatingFileHandler(logging_file, backupCount=3)
 
 
+def get_console_handler(opts):
+    # Send anything INFO+ to stdout and log
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    if not opts.verbose:
+        stdout_handler.setLevel(logging.INFO)
+    if opts.quiet:
+        stdout_handler.setLevel(logging.ERROR)
+
+    formatter = logging.Formatter(LOG_FORMAT)
+    handler.setFormatter(formatter)
+
+    return handler
+
+
 def set_up_logging():
     # TODO: come back to this
     global handler
@@ -68,26 +82,15 @@ def set_up_logging():
         # Just to reduce amount of text
         opts, conf = InsightsClient.options, InsightsClient.config
 
-        handler = get_file_handler(opts, conf)
-
         # from_stdin mode implies to_stdout
         opts.to_stdout = (opts.to_stdout or opts.from_stdin or opts.from_file)
         if opts.to_stdout and not opts.verbose:
             opts.quiet = True
 
-        # Send anything INFO+ to stdout and log
-        stdout_handler = logging.StreamHandler(sys.stdout)
-        if not opts.verbose:
-            stdout_handler.setLevel(logging.INFO)
-        if opts.quiet:
-            stdout_handler.setLevel(logging.ERROR)
         if not opts.silent:
-            logging.root.addHandler(stdout_handler)
+            logging.root.addHandler(get_console_handler())
 
-        logging.root.addHandler(handler)
-
-        formatter = logging.Formatter(LOG_FORMAT)
-        handler.setFormatter(formatter)
+        logging.root.addHandler(get_file_handler(opts, conf))
         logging.root.setLevel(logging.WARNING)
         config_level = 'DEBUG' if opts.verbose else conf.get(APP_NAME, 'loglevel')
 
@@ -99,7 +102,6 @@ def set_up_logging():
         logger.setLevel(init_log_level)
         logging.root.setLevel(init_log_level)
         logger.debug("Logging initialized")
-    return handler
 
 
 def test_connection():
