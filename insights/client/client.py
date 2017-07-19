@@ -64,7 +64,7 @@ def get_console_handler(opts):
     if opts.silent:
         target_level = logging.NOTSET
     elif opts.verbose:
-        target_level = logging.DEUBG
+        target_level = logging.DEBUG
     elif opts.to_stdout:
         target_level = logging.ERROR
     else:
@@ -97,7 +97,7 @@ def set_up_logging():
         # from_stdin mode implies to_stdout
         opts.to_stdout = (opts.to_stdout or opts.from_stdin or opts.from_file)
 
-        logging.root.addHandler(get_console_handler())
+        logging.root.addHandler(get_console_handler(opts))
         logging.root.addHandler(get_file_handler(opts, conf))
         configure_level(opts, conf)
         logger.debug("Logging initialized")
