@@ -75,6 +75,18 @@ def get_console_handler(opts):
     return handler
 
 
+def configure_level(opts, conf):
+    config_level = 'DEBUG' if opts.verbose else conf.get(APP_NAME, 'loglevel')
+
+    init_log_level = logging.getLevelName(config_level)
+    if type(init_log_level) in (str, unicode):
+        print "Invalid log level %s, defaulting to DEBUG" % config_level
+        init_log_level = logging.DEBUG
+
+    logger.setLevel(init_log_level)
+    logging.root.setLevel(init_log_level)
+
+
 def set_up_logging():
     # TODO: come back to this
     global handler
@@ -91,16 +103,7 @@ def set_up_logging():
             logging.root.addHandler(get_console_handler())
 
         logging.root.addHandler(get_file_handler(opts, conf))
-        logging.root.setLevel(logging.WARNING)
-        config_level = 'DEBUG' if opts.verbose else conf.get(APP_NAME, 'loglevel')
-
-        init_log_level = logging.getLevelName(config_level)
-        if type(init_log_level) in (str, unicode):
-            print "Invalid log level %s, defaulting to DEBUG" % config_level
-            init_log_level = logging.DEBUG
-
-        logger.setLevel(init_log_level)
-        logging.root.setLevel(init_log_level)
+        configure_level(opts, conf)
         logger.debug("Logging initialized")
 
 
