@@ -63,10 +63,10 @@ def get_file_handler(opts, conf):
 def get_console_handler(opts):
     if opts.silent:
         target_level = logging.NOTSET
-    elif opts.to_stdout and not opts.verbose:
-        target_level = logging.ERROR
     elif opts.verbose:
         target_level = logging.DEUBG
+    elif opts.to_stdout:
+        target_level = logging.ERROR
     else:
         target_level = logging.INFO
 
