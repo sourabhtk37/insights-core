@@ -49,22 +49,26 @@ def parse_options():
     return parse_config_file(options.conf), options
 
 
+def get_file_handler(opts, conf):
+    log_dir = constants.log_dir
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir, 0700)
+    logging_file = os.path.join(log_dir, APP_NAME + '.log')
+    if conf.get(APP_NAME, 'logging_file'):
+        logging_file = conf.get(APP_NAME, 'logging_file')
+    if opts.logging_file:
+        logging_file = opts.logging_file
+    return logging.handlers.RotatingFileHandler(logging_file, backupCount=3)
+
+
 def set_up_logging():
     # TODO: come back to this
     global handler
     if not handler:
         # Just to reduce amount of text
-        log_dir = constants.log_dir
         opts, conf = InsightsClient.options, InsightsClient.config
 
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir, 0700)
-        logging_file = os.path.join(log_dir, APP_NAME + '.log')
-        if conf.get(APP_NAME, 'logging_file'):
-            logging_file = conf.get(APP_NAME, 'logging_file')
-        if opts.logging_file:
-            logging_file = opts.logging_file
-        handler = logging.handlers.RotatingFileHandler(logging_file, backupCount=3)
+        handler = get_file_handler(opts, conf)
 
         # from_stdin mode implies to_stdout
         opts.to_stdout = (opts.to_stdout or opts.from_stdin or opts.from_file)
