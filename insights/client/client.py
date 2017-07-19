@@ -26,7 +26,6 @@ __author__ = 'Richard Brantley <rbrantle@redhat.com>, Jeremy Crafts <jcrafts@red
 LOG_FORMAT = ("%(asctime)s %(levelname)s %(message)s")
 APP_NAME = constants.app_name
 logger = logging.getLogger(APP_NAME)
-handler = None
 
 
 def parse_options():
@@ -70,9 +69,9 @@ def get_console_handler(opts):
         stdout_handler.setLevel(logging.ERROR)
 
     formatter = logging.Formatter(LOG_FORMAT)
-    handler.setFormatter(formatter)
+    stdout_handler.setFormatter(formatter)
 
-    return handler
+    return stdout_handler
 
 
 def configure_level(opts, conf):
@@ -88,9 +87,7 @@ def configure_level(opts, conf):
 
 
 def set_up_logging():
-    # TODO: come back to this
-    global handler
-    if not handler:
+    if len(logging.root.handlers) == 0:
         # Just to reduce amount of text
         opts, conf = InsightsClient.options, InsightsClient.config
 
