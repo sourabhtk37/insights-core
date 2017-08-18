@@ -6,6 +6,9 @@ python:
 - '2.7'
 install: pip install -e .[develop]
 script: ./build.sh
+services: 
+  - docker
+sudo: required
 env:
   global:
   - secure: STN/tGEViCaDDCDex+f0iIisFVTL/VDyH46rb3baHX9ppAqzPhVNGzCkxTcg2hELpKfuGUpJSOphxtximI/B/vJOGz3GVjEGLo7asXLlupRvwWHxtsN0Rkdebb8Q9uZuIIRdI3s0czgPM3YjTxaiA3pZotRk5o6w868ALgb9fqQxcDZJNUPRR3r67p0Gx3JblwDZOn2KS41ZOuhlgsqxwZilE/nX2cDhvWAkcPV8dMU39wP+3rWSQghh2aO8rUFiIW8lJiLEW0Mh8owJSes/+tkwNwEE8ixrKUsQObz3y//j7AxaOhHcwWNSUHpKZ5E+a8xzPVAaIa7fSE9fJIAcvsM9FmuDTxVTniKXJaYStLgbQmadvg6+0Onfa9w12PcvxIckEUsez6jMG9/I1M3tn17GyGONZbom2/YaGZ/HrEswOR5R+VtpK4fP0Rjs9vnP9NVSH/FRyANg9upSouX3QR6g03rFuyGMT+DfaHDyUEtvtBuPregJvb0RVdqUgp8SIW/ngmBeyIqymxZunstWCeeQlXgk78ttWZYEdkHEXwe7AaN13VH8OnPio7t5GwxhlFgCEWFf/SSJpA62drRoPNceJiyOpUxm9SiOnXnmiBAYGrRV+zA2hSDwDN2S0df1qKxhaC4ccMFj3xdE3AlFcPOr/zfhohRMbD1DZfo1kk8=
