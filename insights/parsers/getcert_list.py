@@ -144,3 +144,8 @@ class CertList(Parser):
         details on how to use it.
         """
         return keyword_search(self._rq_list, **kwargs)
+
+    def __repr__(self):
+        return "[CertList: {num} certs tracked, {tot} listed]".format(
+            num=self.num_tracked, tot=len(self._data)
+        )
