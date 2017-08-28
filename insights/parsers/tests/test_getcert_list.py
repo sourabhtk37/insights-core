@@ -66,6 +66,28 @@ def test_getcert_1():
     # keyword search tests
     assert certs.search(stuck='no') == [certs['20150522133327'], certs['20150522133549']]
 
+    # Repr test
+    assert repr(certs) == '[CertList: 8 certs tracked, 2 listed]'
+
+
+NO_CERTS = """
+Number of certificates and requests being tracked: 0.
+"""
+
+NO_OUTPUT = """
+"""
+
+
+def test_no_certs():
+    for content in (NO_CERTS, NO_OUTPUT):
+        certs = CertList(context_wrap(content, path="getcert_list"))
+
+        assert certs.num_tracked == 0
+        assert len(certs) == 0
+        assert certs.requests == []
+        assert certs.search(stuck='no') == []
+        assert repr(certs) == '[CertList: 0 certs tracked, 0 listed]'
+
 
 CERT_BAD_1 = """
 Number of certificates and requests being tracked: d.
