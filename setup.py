@@ -37,7 +37,8 @@ develop = set([
     'futures==3.0.5',
     'requests==2.13.0',
     'wheel',
-    'nbsphinx'
+    'nbsphinx',
+    'jupyter_client'
 ])
 
 if __name__ == "__main__":
