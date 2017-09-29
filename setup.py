@@ -32,7 +32,7 @@ develop = set([
     'coverage==4.3.4',
     'pytest==3.0.6',
     'pytest-cov==2.4.0',
-    'Sphinx',
+    'Sphinx==1.6.3',
     'sphinx_rtd_theme',
     'futures==3.0.5',
     'requests==2.13.0',
