@@ -39,7 +39,8 @@ develop = set([
     'wheel',
     'nbsphinx',
     'jupyter_client',
-    'Pygments'
+    'Pygments',
+    'ipython'
 ])
 
 if __name__ == "__main__":
