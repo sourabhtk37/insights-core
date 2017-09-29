@@ -18,6 +18,7 @@ Contents:
     custom_tutorial_index
     combiner_tutorial
     fava
+    Insights_Core_Tutorial.ipynb
 
 Indices and tables
 ==================
