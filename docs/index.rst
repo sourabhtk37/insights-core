@@ -5,6 +5,7 @@ Contents:
 
 .. toctree::
     :maxdepth: 4
+    :glob:
 
     intro
     quickstart_insights_core
@@ -18,7 +19,7 @@ Contents:
     custom_tutorial_index
     combiner_tutorial
     fava
-    Insights_Core_Tutorial.ipynb
+    notebooks/*
 
 Indices and tables
 ==================
