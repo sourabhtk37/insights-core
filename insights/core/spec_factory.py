@@ -3,44 +3,18 @@ import inspect
 import logging
 import os
 import re
-import six
 import sys
 import traceback
 
-from collections import defaultdict
 from glob import glob
 
-from insights.core import dr
-from insights.core.context import FileArchiveContext, FSRoots, HostContext
+from insights.core import blacklist, dr
+from insights.core.filters import get_filters
+from insights.core.context import FSRoots, HostContext
 from insights.core.plugins import datasource, ContentException
 from insights.core.serde import deserializer, serializer
 
 log = logging.getLogger(__name__)
-
-# TODO: consider case insensitive and regex
-FILTERS = defaultdict(set)
-
-
-def add_filter(name, patterns):
-    if isinstance(patterns, six.string_types):
-        FILTERS[name].add(patterns)
-    elif isinstance(patterns, list):
-        FILTERS[name] |= set(patterns)
-    elif isinstance(patterns, set):
-        FILTERS[name] |= patterns
-    else:
-        raise TypeError("patterns must be string, list, or set.")
-
-
-def get_filters(component):
-    filters = set()
-    if component in FILTERS:
-        filters |= FILTERS[component]
-
-    alias = dr.get_alias(component)
-    if alias and alias in FILTERS:
-        filters |= FILTERS[alias]
-    return filters
 
 
 def mangle_command(command, name_max=255):
@@ -76,18 +50,22 @@ class ContentProvider(object):
 
         return self._content
 
+    def __repr__(self):
+        msg = "<%s(path=%s, cmd=%s)>"
+        return msg % (self.__class__.__name__, self.path or "", self.cmd or "")
+
     def __unicode__(self):
-        return self.content
+        return self.__repr__()
 
     def __str__(self):
         return self.__unicode__()
 
 
 class FileProvider(ContentProvider):
-    def __init__(self, root, relative_path, filters=None):
+    def __init__(self, relative_path, root="/", filters=None):
         super(FileProvider, self).__init__()
-        self.relative_path = relative_path.lstrip("/")
         self.root = root
+        self.relative_path = relative_path.lstrip("/")
 
         self.path = os.path.join(root, self.relative_path)
         self.file_name = os.path.basename(self.path)
@@ -96,6 +74,9 @@ class FileProvider(ContentProvider):
         self.validate()
 
     def validate(self):
+        if not blacklist.allow_file("/" + self.relative_path):
+            raise dr.SkipComponent()
+
         if not os.path.exists(self.path):
             raise ContentException("%s does not exist." % self.path)
 
@@ -117,9 +98,9 @@ class TextFileProvider(FileProvider):
         with open(self.path, 'r') as f:
             if self.filters:
                 # This should shell out to a grep pipeline
-                return [l.rstrip() for l in f.readlines() if any(s in l for s in self.filters)]
+                return [l.rstrip() for l in f if any(s in l for s in self.filters)]
             else:
-                return [l.rstrip() for l in f.readlines()]
+                return [l.rstrip() for l in f]
 
 
 class CommandOutputProvider(ContentProvider):
@@ -134,6 +115,11 @@ class CommandOutputProvider(ContentProvider):
         self.rc = rc
         self.split = split
         self.keep_rc = keep_rc
+        self.validate()
+
+    def validate(self):
+        if not blacklist.allow_command(self.cmd):
+            raise dr.SkipComponent()
 
     def load(self):
         if self.keep_rc:
@@ -151,7 +137,11 @@ class SpecFactory(object):
         self.module_name = module_name
 
     def _attach(self, component, name):
-        """ Attach component to a module by name. """
+        """
+        This step binds the component to the module in which it was defined, or
+        the specified module.  This is important because otherwise all
+        components would be attached to *this* module.
+        """
 
         if self.module_name:
             if self.module_name not in sys.modules:
@@ -169,30 +159,41 @@ class SpecFactory(object):
             if old:
                 dr.replace(old, component)
 
+    def _get_context(self, context, alternatives, broker):
+        if context:
+            if isinstance(context, list):
+                return dr.first_of(context, broker)
+            return broker.get(context)
+        return dr.first_of(alternatives, broker)
+
     def simple_file(self, path, name=None, context=None, Kind=TextFileProvider, alias=None):
-        @datasource(requires=[context or FSRoots], alias=alias)
+        alias = alias or name
+
+        @datasource(context or FSRoots, alias=alias)
         def inner(broker):
-            root = (broker.get(context) or dr.first_of(FSRoots, broker)).root
-            return Kind(root, os.path.expandvars(path), filters=get_filters(inner))
+            ctx = self._get_context(context, FSRoots, broker)
+            return Kind(ctx.locate_path(path), root=ctx.root, filters=get_filters(inner))
         if name:
             self._attach(inner, name)
         return inner
 
     def glob_file(self, patterns, name=None, ignore=None, context=None, Kind=TextFileProvider, alias=None):
+        alias = alias or name
         if not isinstance(patterns, (list, set)):
             patterns = [patterns]
 
-        @datasource(requires=[context or FSRoots], alias=alias)
+        @datasource(context or FSRoots, alias=alias)
         def inner(broker):
-            root = (broker.get(context) or dr.first_of(FSRoots, broker)).root
+            ctx = self._get_context(context, FSRoots, broker)
+            root = ctx.root
             results = []
             for pattern in patterns:
-                pattern = os.path.expandvars(pattern)
+                pattern = ctx.locate_path(pattern)
                 for path in glob(os.path.join(root, pattern.lstrip('/'))):
                     if ignore and re.search(ignore, path):
                         continue
                     try:
-                        results.append(Kind(root, path[len(root):], filters=get_filters(inner)))
+                        results.append(Kind(path[len(root):], root=root, filters=get_filters(inner)))
                     except:
                         log.debug(traceback.format_exc())
             if results:
@@ -203,12 +204,15 @@ class SpecFactory(object):
         return inner
 
     def first_file(self, files, name=None, context=None, Kind=TextFileProvider, alias=None):
-        @datasource(requires=[context or FSRoots], alias=alias)
+        alias = alias or name
+
+        @datasource(context or FSRoots, alias=alias)
         def inner(broker):
-            root = (broker.get(context) or dr.first_of(FSRoots, broker)).root
+            ctx = self._get_context(context, FSRoots, broker)
+            root = ctx.root
             for f in files:
                 try:
-                    return Kind(root, f, filters=get_filters(inner))
+                    return Kind(ctx.locate_path(f), root=root, filters=get_filters(inner))
                 except:
                     pass
             raise ContentException("None of [%s] found." % ', '.join(files))
@@ -217,10 +221,13 @@ class SpecFactory(object):
         return inner
 
     def listdir(self, path, name=None, context=None, alias=None):
-        @datasource(requires=[context or FSRoots], alias=alias)
+        alias = alias or name
+
+        @datasource(context or FSRoots, alias=alias)
         def inner(broker):
-            root = (broker.get(context) or dr.first_of(FSRoots, broker)).root
-            p = os.path.join(root, path.lstrip('/'))
+            ctx = self._get_context(context, FSRoots, broker)
+            p = os.path.join(ctx.root, path.lstrip('/'))
+            p = ctx.locate_path(p)
             if os.path.isdir(p):
                 return os.listdir(p)
 
@@ -233,7 +240,9 @@ class SpecFactory(object):
         return inner
 
     def simple_command(self, cmd, name=None, context=HostContext, split=True, keep_rc=False, timeout=None, alias=None):
-        @datasource(requires=[context], alias=alias)
+        alias = alias or name
+
+        @datasource(context, alias=alias)
         def inner(broker):
             ctx = broker[context]
             rc = None
@@ -247,8 +256,10 @@ class SpecFactory(object):
             self._attach(inner, name)
         return inner
 
-    def with_args_from(self, provider, cmd, name=None, context=HostContext, split=True, keep_rc=False, timeout=None, alias=None):
-        @datasource(requires=[provider, context], alias=alias)
+    def foreach(self, provider, cmd, name=None, context=HostContext, split=True, keep_rc=False, timeout=None, alias=None):
+        alias = alias or name
+
+        @datasource(provider, context, alias=alias)
         def inner(broker):
             result = []
             source = broker[provider]
@@ -266,6 +277,7 @@ class SpecFactory(object):
                         rc, output = raw
                     else:
                         output = raw
+
                     result.append(CommandOutputProvider(the_cmd, ctx, args=e, content=output, rc=rc, split=split, keep_rc=keep_rc))
                 except:
                     log.debug(traceback.format_exc())
@@ -276,45 +288,15 @@ class SpecFactory(object):
             self._attach(inner, name)
         return inner
 
-    def stored_command(self,
-                       pattern,
-                       name=None,
-                       context=FileArchiveContext,
-                       Kind=TextFileProvider,
-                       replace_regex="([a-zA-Z0-9]+)",
-                       alias=None):
-        has_group = "?" in pattern
-        pattern = mangle_command(pattern).replace("?", replace_regex) + "$"
-
-        @datasource(requires=[context], alias=alias)
-        def inner(broker):
-            ctx = broker[context]
-            root = ctx.root
-            results = []
-            pat = os.path.join(ctx.stored_command_prefix, pattern)
-            for path in broker[context].file_paths:
-                m = re.match(pat, path)
-                if m:
-                    results.append(Kind(root, path, filters=get_filters(inner)))
-            if not results:
-                raise ContentException("[%s] didn't match." % pat)
-
-            if not has_group and len(results) == 1:
-                return results[0]
-            return results
-
-        if name:
-            self._attach(inner, name)
-        return inner
-
     def first_of(self, deps, name=None, alias=None):
         """ Given a list of dependencies, returns the first of the list
             that exists in the broker. At least one must be present, or this
             component won't fire.
         """
+        alias = alias or name
         dr.mark_hidden(deps)
 
-        @datasource(requires=[deps], alias=alias)
+        @datasource(deps, alias=alias)
         def inner(broker):
             for c in deps:
                 if c in broker:

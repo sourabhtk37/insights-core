@@ -19,6 +19,7 @@ entry_points = {
 }
 
 runtime = set([
+    'argparse',
     'pyyaml>=3.10,<=3.12',
     'six',
     'requests',
@@ -40,6 +41,7 @@ develop = set([
     'nbsphinx',
     'jupyter_client',
     'Pygments'
+    'six'
 ])
 
 if __name__ == "__main__":

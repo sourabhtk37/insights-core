@@ -4,6 +4,7 @@ This module implements dependency resolution and execution within Red Hat Insigh
 
 import inspect
 import logging
+import os
 import pkgutil
 import re
 import six
@@ -83,7 +84,7 @@ def get_component(name):
 
         return COMPONENT_NAME_CACHE[name]
     except:
-        log.debug("Couldn't load module for %s" % name)
+        log.debug("Couldn't load module for %s.%s" % (mod, name))
         COMPONENT_NAME_CACHE[name] = None
 
 
@@ -177,7 +178,6 @@ def is_hidden(component):
     return component in HIDDEN
 
 
-# TODO: review global vars
 def replace(old, new):
     _type = TYPE_OF_COMPONENT[old]
     _group = GROUP_OF_COMPONENT[old]
@@ -192,6 +192,7 @@ def replace(old, new):
         DEPENDENCIES[d].add(new)
 
     COMPONENTS_BY_TYPE[_type].discard(old)
+    COMPONENT_NAME_CACHE[get_name(new)] = new
 
     if old in ALIASES_BY_COMPONENT:
         a = ALIASES_BY_COMPONENT[old]
@@ -273,26 +274,44 @@ def get_subgraphs(graph=DEPENDENCIES):
         seen.clear()
 
 
+def try_import(path):
+    try:
+        return importlib.import_module(path)
+    except Exception as ex:
+        log.exception(ex)
+
+
 def load_components(path, include=".*", exclude="test"):
-    path = path.replace("/", ".")
+    num_loaded = 0
+    if path.endswith((".py", ".fava")):
+        path, _ = os.path.splitext(path)
+
+    path = path.rstrip("/").replace("/", ".")
 
     log.debug("Importing %s" % path)
-    package = importlib.import_module(path)
+    package = try_import(path)
+    if not package:
+        return
+
+    num_loaded += 1
 
     do_include = re.compile(include).search if include else lambda x: True
     do_exclude = re.compile(exclude).search if exclude else lambda x: False
 
     if not hasattr(package, "__path__"):
-        return
+        return num_loaded
 
     prefix = package.__name__ + "."
     for _, name, is_pkg in pkgutil.iter_modules(path=package.__path__, prefix=prefix):
         if do_include(name) and not do_exclude(name):
             if is_pkg:
-                load_components(name, include, exclude)
+                num_loaded += load_components(name, include, exclude)
             else:
                 log.debug("Importing %s" % name)
-                importlib.import_module(name)
+                try_import(name)
+                num_loaded += 1
+
+    return num_loaded
 
 
 def first_of(dependencies, broker):
@@ -358,20 +377,26 @@ def register_component(component, delegate, component_type,
         fava.add_shared_parser(component.__name__, component)
 
     if alias:
-        msg = "Alias %s already registered!"
+        msg = "%s replacing alias '%s' registered to %s."
         if alias in ALIASES:
-            raise Exception(msg % alias)
-        if component in ALIASES:
-            raise Exception(msg % get_name(component))
+            log.info(msg % (get_name(component), alias, get_name(ALIASES[alias])))
 
         ALIASES[alias] = component
         ALIASES_BY_COMPONENT[component] = alias
+
+    name = get_name(component)
+    if name.startswith("__main__."):
+        old = COMPONENT_NAME_CACHE.get(name)
+        if old:
+            replace(old, component)
+        else:
+            COMPONENT_NAME_CACHE[name] = component
 
 
 class Broker(object):
     def __init__(self, seed_broker=None):
         self.instances = dict(seed_broker.instances) if seed_broker else {}
-        self.missing_dependencies = {}
+        self.missing_requirements = {}
         self.exceptions = defaultdict(list)
         self.tracebacks = {}
         self.exec_times = {}
@@ -403,7 +428,7 @@ class Broker(object):
 
     def add_exception(self, component, ex, tb=None):
         if isinstance(ex, MissingRequirements):
-            self.missing_dependencies[component] = ex.requirements
+            self.missing_requirements[component] = ex.requirements
         else:
             self.exceptions[component].append(ex)
             self.tracebacks[ex] = tb
@@ -483,14 +508,14 @@ def get_missing_requirements(requires, d):
         return None
 
 
-def default_executor(func, broker, requires=[], optional=[]):
+def broker_executor(func, broker, requires=[], optional=[]):
     missing_requirements = get_missing_requirements(requires, broker)
     if missing_requirements:
         raise MissingRequirements(missing_requirements)
     return func(broker)
 
 
-def splat_executor(func, broker, requires=[], optional=[]):
+def default_executor(func, broker, requires=[], optional=[]):
     """ Use this executor if your component signature matches your
         dependency list. Can be used on individual components or
         in component type definitions.
@@ -544,13 +569,14 @@ def new_component_type(name=None,
             A decorator function used to define components of the new type.
     """
 
-    def decorator(requires=None,
-                  optional=None,
-                  group=group,
-                  alias=None,
-                  component_type=None,
-                  metadata={}):
-        requires = requires or []
+    def decorator(*requires, **kwargs):
+        optional = kwargs.get("optional", None)
+        the_group = kwargs.get("group", group)
+        alias = kwargs.get("alias", None)
+        component_type = kwargs.get("component_type", None)
+        metadata = kwargs.get("metadata", {})
+
+        requires = list(requires) or kwargs.get("requires", [])
         optional = optional or []
 
         requires.extend(auto_requires)
@@ -568,7 +594,7 @@ def new_component_type(name=None,
             register_component(func, __f, component_type or decorator,
                                requires=requires,
                                optional=optional,
-                               group=group,
+                               group=the_group,
                                alias=alias,
                                metadata=component_metadata)
             return func

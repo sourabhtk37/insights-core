@@ -59,7 +59,7 @@ def rule_executor(component, broker, requires, optional, executor=dr.default_exe
     return r
 
 
-splat_rule_executor = partial(rule_executor, executor=dr.splat_executor)
+broker_rule_executor = partial(rule_executor, executor=dr.broker_executor)
 
 
 class ContentException(Exception):
@@ -69,7 +69,7 @@ class ContentException(Exception):
     pass
 
 
-datasource = dr.new_component_type("datasource")
+datasource = dr.new_component_type("datasource", executor=dr.broker_executor)
 """ Defines a component that one or more Parsers will consume."""
 
 
@@ -92,8 +92,10 @@ def parser(dependency, group=dr.GROUPS.single, alias=None):
     object usable by combiners and rules. `parser` is a specialization
     of the general component interface.
     """
+    dependency = dr.get_alias(dependency) or dependency
+
     def _f(component):
-        return _parser(requires=[dependency], group=group, alias=alias, component_type=parser)(component)
+        return _parser(dependency, group=group, alias=alias, component_type=parser)(component)
     return _f
 
 
@@ -101,27 +103,36 @@ def make_rule_type(name=None,
                    auto_requires=[],
                    auto_optional=[],
                    group=dr.GROUPS.single,
-                   use_splat_executor=False,
+                   use_broker_executor=False,
                    type_metadata={}):
 
-    executor = splat_rule_executor if use_splat_executor else rule_executor
+    executor = broker_rule_executor if use_broker_executor else rule_executor
     _type = dr.new_component_type(name=None,
                                   auto_requires=auto_requires,
                                   auto_optional=auto_optional,
                                   group=group,
                                   executor=executor,
                                   type_metadata=type_metadata)
+
+    def decorator(*requires, **kwargs):
+        if kwargs.get("cluster"):
+            kwargs["group"] = dr.GROUPS.cluster
+
+        kwargs["component_type"] = decorator
+
+        return _type(*requires, **kwargs)
+
     if name:
-        _type.__name__ = name
+        decorator.__name__ = name
         s = inspect.stack()
         frame = s[1][0]
         mod = inspect.getmodule(frame) or sys.modules.get("__main__")
         if mod:
-            _type.__module__ = mod.__name__
-            setattr(mod, name, _type)
+            decorator.__module__ = mod.__name__
+            setattr(mod, name, decorator)
 
-    RULE_TYPES.add(_type)
-    return _type
+    RULE_TYPES.add(decorator)
+    return decorator
 
 
 combiner = dr.new_component_type("combiner")
@@ -130,6 +141,9 @@ combiner = dr.new_component_type("combiner")
 stage = combiner
 
 rule = make_rule_type(name="rule")
+""" A component that can see all parsers and combiners for a single host."""
+
+fava_rule = make_rule_type(name="fava_rule", use_broker_executor=True)
 """ A component that can see all parsers and combiners for a single host."""
 
 condition = dr.new_component_type("condition")

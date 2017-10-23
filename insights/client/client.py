@@ -142,16 +142,13 @@ def try_register():
         logger.info("Running client in Container mode. Bypassing registration.")
         return
 
-    if os.path.isfile(constants.registered_file):
-        logger.info('This host has already been registered.')
-        return
     # check reg status with API
     reg_check = registration_check()
     if reg_check['status']:
         logger.info('This host has already been registered.')
         # regenerate the .registered file
         write_to_disk(constants.registered_file)
-        return
+        return True
     if reg_check['unreachable']:
         logger.error(reg_check['messages'][1])
         return None
@@ -241,6 +238,16 @@ def get_branch_info():
     returns (dict): {'remote_branch': -1, 'remote_leaf': -1}
     """
     branch_info = constants.default_branch_info
+
+    # in the case we are running on offline mode
+    # or we are analyzing a running container/image
+    # or tar file, mountpoint, simply return the default branch info
+    if (config['offline'] or
+            config['analyze_container'] or
+            config['container_mode']):
+        return branch_info
+
+    # otherwise continue reaching out to obtain branch info
     try:
         pconn = get_connection()
         branch_info = pconn.branch_info()

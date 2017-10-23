@@ -23,8 +23,13 @@ SsTULPN - command ``ss -tulpn``
 """
 
 from collections import defaultdict
-from ..parsers import ParseException
-from .. import Parser, parser, parse_table, LegacyItemAccess
+from . import ParseException, parse_delimited_table
+from .. import Parser, parser, LegacyItemAccess
+from insights.specs import netstat
+from insights.specs import netstat__agn
+from insights.specs import netstat_i
+from insights.specs import netstat_s
+from insights.specs import ss
 
 
 ACTIVE_INTERNET_CONNECTIONS = 'Active Internet connections (servers and established)'
@@ -41,10 +46,8 @@ NETSTAT_TEXT_RIGHT_ALIGNMENT = {
 }
 COMPONENT_LEN = "__component_len__"
 
-SSTULPN_TABLE_HEARDER = ["Netid  State  Recv-Q  Send-Q  Local-Address-Port Peer-Address-Port  Process"]
 
-
-@parser('netstat-s')
+@parser(netstat_s)
 class NetstatS(LegacyItemAccess, Parser):
     """
     Parses data from the ```netstat -s``` command.
@@ -219,7 +222,7 @@ class NetstatS(LegacyItemAccess, Parser):
         self.data[session] = first_layer
 
 
-@parser("netstat_-agn")
+@parser(netstat__agn)
 class NetstatAGN(Parser):
     """
     Parse netstat -agn to get interface multicast infomation.
@@ -266,8 +269,9 @@ class NetstatAGN(Parser):
         return dict(result)
 
     def parse_content(self, content):
+        # Skip 'IPv6/IPv6 Group Memberships' and '-----' lines.
         content = content[1:2] + content[3:]
-        table = parse_table(content)
+        table = parse_delimited_table(content)
         self.data = map(lambda item: dict((k.lower(), v) for (k, v) in item.iteritems()), table)
 
 
@@ -348,7 +352,7 @@ class NetstatSection(object):
         return self.data
 
 
-@parser("netstat")
+@parser(netstat)
 class Netstat(Parser):
     """
     Parsing netstat command content and return
@@ -535,7 +539,7 @@ class Netstat(Parser):
         return results
 
 
-@parser("netstat-i")
+@parser(netstat_i)
 class Netstat_I(Parser):
     """
     Parse netstat -i to get interface traffic info such as "TX-OK" and "RX-OK".
@@ -576,7 +580,8 @@ class Netstat_I(Parser):
 
     def parse_content(self, content):
         self._group_by_iface = {}
-        table = parse_table(content[1:])
+        # heading_ignore is first line we _don't_ want to ignore...
+        table = parse_delimited_table(content, heading_ignore=['Iface'])
         self.data = map(lambda item:
                         dict((k, v) for (k, v) in item.iteritems()), table)
         for entry in self.data:
@@ -585,7 +590,7 @@ class Netstat_I(Parser):
         return
 
 
-@parser("ss")
+@parser(ss)
 class SsTULPN(Parser):
     """
     This class parse the input as a table with header:
@@ -630,7 +635,8 @@ class SsTULPN(Parser):
     """
 
     def parse_content(self, content):
-        self.data = parse_table(SSTULPN_TABLE_HEARDER + content[1:])
+        SSTULPN_TABLE_HEADER = ["Netid  State  Recv-Q  Send-Q  Local-Address-Port Peer-Address-Port  Process"]
+        self.data = parse_delimited_table(SSTULPN_TABLE_HEADER + content[1:])
 
     def get_service(self, service):
         return [l for l in self.data if l.get("Process", None) and service in l["Process"]]

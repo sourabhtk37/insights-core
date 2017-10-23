@@ -20,9 +20,10 @@ Examples:
 """
 
 from .. import Parser, parser
+from insights.specs import hostname
 
 
-@parser("hostname")
+@parser(hostname)
 class Hostname(Parser):
     """Class for parsing ``hostname`` command output.
 
@@ -39,3 +40,6 @@ class Hostname(Parser):
         self.fqdn = raw
         self.hostname = raw.split(".")[0] if raw else None
         self.domain = ".".join(raw.split(".")[1:]) if raw else None
+
+    def __str__(self):
+        return "<hostname: {h}, domain: {d}>".format(h=self.hostname, d=self.domain)

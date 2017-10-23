@@ -39,23 +39,16 @@ BOOT_DISABLED = 'selinux_conf_disabled'
 BOOT_NOT_ENFORCING = 'selinux_conf_not_enforcing'
 
 
-@combiner(requires=[SEStatus, SelinuxConfig],
-          optional=[Grub1Config, Grub2Config, Grub2EFIConfig])
+@combiner(SEStatus, SelinuxConfig, optional=[Grub1Config, Grub2Config, Grub2EFIConfig])
 class SELinux(object):
     """
     A combiner for detecting that SELinux is enabled and running and also enabled at boot time.
     """
-    def __init__(self, shared):
+    def __init__(self, se_status, selinux_config, grub1, grub2, grub2_efi):
         self.problems = {}
-        self.sestatus = shared[SEStatus]
-        self.selinux_config = shared[SelinuxConfig]
-        self.grub_config = None
-        if Grub1Config in shared:
-            self.grub_config = shared[Grub1Config]
-        elif Grub2Config in shared:
-            self.grub_config = shared[Grub2Config]
-        elif Grub2EFIConfig in shared:
-            self.grub_config = shared[Grub2EFIConfig]
+        self.sestatus = se_status
+        self.selinux_config = selinux_config
+        self.grub_config = grub1 or grub2 or grub2_efi
 
         self._check_sestatus()
         self._check_boot_config()
@@ -78,8 +71,10 @@ class SELinux(object):
 
         This file determines the boot configuration for SELinux.
         """
-        opt_value = self.selinux_config.data['SELINUX']
-        if opt_value == 'disabled':
+        opt_value = self.selinux_config.data.get('SELINUX')
+        if opt_value is None:
+            self.problems[BOOT_NOT_ENFORCING] = 'Missing in config (Permissive by default)'
+        elif opt_value == 'disabled':
             self.problems[BOOT_DISABLED] = opt_value
         elif opt_value != 'enforcing':
             self.problems[BOOT_NOT_ENFORCING] = opt_value

@@ -6,7 +6,7 @@ import shlex
 import shutil
 from subprocess import Popen, PIPE
 
-from .. import get_nvr
+from .. import package_info
 from . import client
 from .constants import InsightsConstants as constants
 from .config import CONFIG as config, compile_config
@@ -47,14 +47,7 @@ class InsightsClient(object):
         return client.set_up_logging()
 
     def version(self):
-        """
-            returns (dict): {'core': str,
-                            'client_api': str}
-        """
-        core_version = get_nvr()
-        client_api_version = constants.version
-
-        return {'core': core_version, 'client_api': client_api_version}
+        return "%s-%s" % (package_info["VERSION"], package_info["RELEASE"])
 
     def test_connection(self):
         """
@@ -168,6 +161,11 @@ class InsightsClient(object):
             logger.debug('Please check config, error reaching %s', url)
 
     def update(self):
+        # dont update if running in offline mode
+        if config['offline']:
+            logger.debug("Not updating Core. Running in offline mode.")
+            return True
+
         # fetch the new eggs and gpg
         egg_paths = self.fetch()
 

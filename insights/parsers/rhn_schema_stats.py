@@ -1,4 +1,6 @@
-from .. import Parser, parser, parse_table, get_active_lines
+from .. import Parser, parser, get_active_lines
+from . import parse_delimited_table
+from insights.specs import rhn_schema_stats
 
 
 def _replace_tabs(s, ts=8):
@@ -52,7 +54,7 @@ class LabelTable(Table):
     pass
 
 
-@parser('rhn-schema-stats')
+@parser(rhn_schema_stats)
 class DBStatsLog(Parser):
     """
     Returns a DBStatsLog object which provides below two methods:
@@ -127,7 +129,7 @@ class DBStatsLog(Parser):
             # for PostgreSQL db stats log
             for line in get_active_lines(content, comment_char="--"):
                 if line.startswith("(") and "rows" in line:
-                    tables.append(parse_table(table, delim="|"))
+                    tables.append(parse_delimited_table(table, delim="|"))
                     table = []
                 else:
                     table.append(line)

@@ -1,15 +1,22 @@
+from __future__ import print_function
+import os
 import pkgutil
+from pprint import pprint
+from .config.factory import get_config  # noqa: F401
 from .core import Scannable, LogFileOutput, Parser, IniConfigFile  # noqa: F401
 from .core import FileListing, LegacyItemAccess, SysconfigOptions  # noqa: F401
 from .core import YAMLParser                                       # noqa: F401
 from .core import AttributeDict  # noqa: F401
 from .core import Syslog  # noqa: F401
-from .core.plugins import metadata, parser, rule  # noqa: F401
+from .core import archives  # noqa: F401
+from .core import dr  # noqa: F401
+from .core.context import HostContext, HostArchiveContext  # noqa: F401
+from .core.plugins import combiner, metadata, parser, rule  # noqa: F401
 from .core.plugins import datasource, condition, incident  # noqa: F401
 from .core.plugins import make_response, make_metadata  # noqa: F401
-from .config.factory import add_filter  # noqa: F401
+from .core.filters import add_filter, apply_filters, get_filters  # noqa: F401
 from .parsers import get_active_lines  # noqa: F401
-from .util import defaults, parse_table  # noqa: F401
+from .util import defaults  # noqa: F401
 
 try:
     from .core import fava  # noqa: F401
@@ -45,3 +52,122 @@ def add_status(name, nvr, commit):
     register their version information.
     """
     RULES_STATUS[name] = {"version": nvr, "commit": commit}
+
+
+def _run(graph=None, root=None, run_context=HostContext,
+         archive_context=HostArchiveContext):
+    """
+    run is a general interface that is meant for stand alone scripts to use
+    when executing insights components.
+
+    Args:
+        root (str): None will causes a host collection in which command and
+            file specs are run. A directory or archive path will cause
+            collection from the directory or archive, and only file type specs
+            or those that depend on `insights.core.context.HostArchiveContext`
+            will execute.
+        component (function or class): The component to execute. Will only execute
+            the component and its dependency graph. If None, all components with
+            met dependencies will execute.
+
+    Returns:
+        broker: object containing the result of the evaluation.
+    """
+    broker = dr.Broker()
+
+    if not root:
+        broker[run_context] = run_context()
+        return dr.run(graph, broker=broker)
+
+    if os.path.isdir(root):
+        broker[archive_context] = archive_context(root=root)
+        return dr.run(graph, broker=broker)
+
+    if archives._magic.file(root) == "application/zip":
+        extractor = archives.ZipExtractor()
+    else:
+        extractor = archives.TarExtractor()
+
+    with extractor.from_path(root) as ex:
+        all_files = archives.get_all_files(ex.tmp_dir)
+        common_path = os.path.commonprefix(all_files)
+        real_root = os.path.join(ex.tmp_dir, common_path)
+        broker[archive_context] = archive_context(root=real_root)
+        return dr.run(graph, broker=broker)
+
+
+def _load_context(path):
+    if path is None:
+        return
+
+    if "." not in path:
+        path = ".".join(["insights.core.context", path])
+    return dr.get_component(path)
+
+
+def run(component=None, root=None, print_summary=False,
+        run_context=HostContext, archive_context=HostArchiveContext):
+
+    from .core import dr
+
+    if print_summary:
+        import argparse
+        import logging
+        p = argparse.ArgumentParser()
+        p.add_argument("archive", nargs="?", help="Archive or directory to analyze")
+        p.add_argument("-p", "--plugins", default=[], nargs="*",
+                       help="package(s) or module(s) containing plugins to run.")
+        p.add_argument("-v", "--verbose", help="Verbose output.", action="store_true")
+        p.add_argument("-m", "--missing", help="Show missing requirements.", action="store_true")
+        p.add_argument("-t", "--tracebacks", help="Show stack traces.", action="store_true")
+        p.add_argument("--rc", help="Run Context")
+        p.add_argument("--ac", help="Archive Context")
+        args = p.parse_args()
+
+        logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
+        run_context = _load_context(args.rc) or run_context
+        archive_context = _load_context(args.ac) or archive_context
+
+        root = args.archive or root
+
+        for path in args.plugins:
+            dr.load_components(path)
+
+    if component:
+        if not isinstance(component, (list, set)):
+            component = [component]
+        graph = {}
+        for c in component:
+            graph.update(dr.get_dependency_graph(c))
+    else:
+        graph = dr.COMPONENTS[dr.GROUPS.single]
+
+    broker = _run(graph, root, run_context=run_context, archive_context=archive_context)
+    if print_summary:
+
+        if args.missing:
+            print()
+            print("Missing Requirements:")
+            if broker.missing_requirements:
+                pprint(broker.missing_requirements)
+
+        if args.tracebacks:
+            print()
+            print("Tracebacks:")
+            for t in broker.tracebacks.values():
+                print(t)
+
+        print()
+        for _type in sorted(dr.COMPONENTS_BY_TYPE, key=dr.get_simple_name):
+            print()
+            print("{} instances:".format(dr.get_simple_name(_type)))
+            for c in sorted(broker.get_by_type(_type), key=dr.get_name):
+                v = broker[c]
+                pprint("{}:".format(dr.get_name(c)))
+                pprint(v)
+                print()
+    return broker
+
+
+if __name__ == "__main__":
+    run(print_summary=True)

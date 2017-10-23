@@ -6,18 +6,7 @@ import shlex
 import subprocess
 import tempfile
 from insights.core.marshalling import Marshaller
-from insights.util import subproc, fs
-
-try:
-    import insights.contrib.magic as magic
-except Exception:
-    raise ImportError("You need to install the 'file' RPM.")
-else:
-    _magic = magic.open(magic.MIME_TYPE)
-    _magic.load()
-
-    _magic_inner = magic.open(magic.MIME_TYPE | magic.MAGIC_COMPRESS)
-    _magic_inner.load()
+from insights.util import subproc, fs, content_type
 
 logger = logging.getLogger(__name__)
 marshaller = Marshaller()
@@ -85,7 +74,7 @@ class ZipExtractor(Extractor):
 
     def from_path(self, path):
         self.tmp_dir = tempfile.mkdtemp()
-        command = "unzip %s -d %s" % (path, self.tmp_dir)
+        command = "unzip -q -d %s %s" % (self.tmp_dir, path)
         subprocess.call(shlex.split(command))
         self.tar_file = DirectoryAdapter(self.tmp_dir)
         return self
@@ -102,12 +91,17 @@ class TarExtractor(Extractor):
     }
 
     def _assert_type(self, _input, is_buffer=False):
-        method = 'buffer' if is_buffer else 'file'
-        self.content_type = getattr(_magic, method)(_input)
+        if is_buffer:
+            self.content_type = content_type.from_buffer(_input)
+        else:
+            self.content_type = content_type.from_file(_input)
         if self.content_type not in self.TAR_FLAGS:
             raise InvalidContentType(self.content_type)
 
-        inner_type = getattr(_magic_inner, method)(_input)
+        if is_buffer:
+            inner_type = content_type.from_buffer_inner(_input)
+        else:
+            inner_type = content_type.from_file_inner(_input)
         if inner_type != 'application/x-tar':
             raise InvalidArchive('No compressed tar archive')
 
@@ -138,6 +132,16 @@ class TarExtractor(Extractor):
         return self
 
 
+def get_all_files(path):
+    names = []
+    for root, dirs, files in os.walk(path):
+        for dirname in dirs:
+            names.append(os.path.join(root, dirname) + "/")
+        for filename in files:
+            names.append(os.path.join(root, filename))
+    return names
+
+
 class DirectoryAdapter(object):
     """
     This class takes a path to a directory and provides a subset of
@@ -146,12 +150,7 @@ class DirectoryAdapter(object):
 
     def __init__(self, path):
         self.path = path
-        self.names = []
-        for root, dirs, files in os.walk(self.path):
-            for dirname in dirs:
-                self.names.append(os.path.join(root, dirname) + "/")
-            for filename in files:
-                self.names.append(os.path.join(root, filename))
+        self.names = get_all_files(path)
 
     def getnames(self):
         return self.names

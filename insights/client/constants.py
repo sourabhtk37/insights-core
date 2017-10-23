@@ -1,15 +1,16 @@
 import os
 
+from insights import package_info
+
 
 class InsightsConstants(object):
     app_name = 'insights-client'
-    version = '3.0.0-4'
     auth_method = 'BASIC'
     package_path = os.path.dirname(
         os.path.dirname(os.path.abspath(__file__)))
     sleep_time = 300
     default_conf_file = '/etc/insights-client/insights-client.conf'
-    user_agent = os.path.join(app_name, version)
+    user_agent = os.path.join(app_name, package_info["VERSION"])
     log_dir = os.path.join(os.sep, 'var', 'log', app_name)
     default_conf_dir = '/etc/insights-client'
     default_sed_file = os.path.join(default_conf_dir, '.exp.sed')
@@ -26,7 +27,6 @@ class InsightsConstants(object):
     docker_group_id_file = os.path.join(default_conf_dir, 'docker-group-id')
     default_target = [{'type': 'host', 'name': ''}]
     default_branch_info = {'remote_branch': -1, 'remote_leaf': -1}
-    docker_image_name = None
     default_cmd_timeout = 600  # default command execution to ten minutes, prevents long running commands that will hang
     default_egg_gpg_key = os.path.join(default_conf_dir, 'insights-core.gpg')
     core_etag_file = os.path.join(default_conf_dir, '.insights-core.etag')

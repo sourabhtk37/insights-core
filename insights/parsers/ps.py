@@ -65,8 +65,12 @@ Examples:
     >>> [p['COMMAND'] for p in ps_info]
     ['init', 'kondemand/0', 'irqbalance', 'bash', 'dhclient', 'qemu-kvn', 'vdsm']
 """
-from .. import add_filter, Parser, parser, parse_table
-from insights.parsers import ParseException
+from .. import add_filter, Parser, parser
+from . import ParseException, parse_delimited_table
+from insights.specs import ps_aux
+from insights.specs import ps_auxcww
+from insights.specs import ps_auxwww
+from insights.specs import ps_axcwwo
 
 
 class ProcessList(Parser):
@@ -113,7 +117,7 @@ class ProcessList(Parser):
             yield row
 
 
-@parser('ps_auxcww')
+@parser(ps_auxcww)
 class PsAuxcww(ProcessList):
     """Class to parse ``ps auxcww`` command output.
 
@@ -134,7 +138,7 @@ class PsAuxcww(ProcessList):
 
     def parse_content(self, content):
         if len(content) > 0 and "COMMAND" in content[0]:
-            self.data = parse_table(content)
+            self.data = parse_delimited_table(content)
             self.parse_services(content)
         else:
             raise ParseException("PsAuxcww: Unable to parse content: {0} ({1})".format(len(content),
@@ -157,15 +161,15 @@ class PsAuxcww(ProcessList):
                 self.services.append((service, user, line))
 
 
-add_filter('ps_aux', ['STAP', 'keystone-all', 'COMMAND'])
+add_filter('ps_aux', ['STAP', 'keystone-all', 'COMMAND', 'tomcat'])
 
 
-@parser('ps_aux')
+@parser(ps_aux)
 class PsAux(ProcessList):
     """Class to parse ``ps aux`` command output.
 
     Output is filtered to only contain the header line and lines containing
-    the string 'keystone-all'.
+    the strings 'keystone-all' and 'tomcat'.
 
     Attributes:
         data (list): List of dicts, where the keys in each dict are the column
@@ -175,12 +179,12 @@ class PsAux(ProcessList):
 
     def parse_content(self, content):
         if len(content) > 0 and "COMMAND" in content[0]:
-            self.data = parse_table(content, max_splits=10)
+            self.data = parse_delimited_table(content, max_splits=10)
         else:
             self.data = []
 
 
-@parser('ps_auxwww')  # we don't want to filter the ps_auxwww file
+@parser(ps_auxwww)  # we don't want to filter the ps_auxwww file
 class PsAuxwww(PsAux):
     """Class to parse ``ps auxwww`` command output.
 
@@ -191,7 +195,7 @@ class PsAuxwww(PsAux):
     pass
 
 
-@parser('ps_axcwwo')
+@parser(ps_axcwwo)
 class PsAxcwwo(ProcessList):
     """Class to parse ``ps axcwwo ucomm,%cpu,lstart`` command output.
 
@@ -207,7 +211,7 @@ class PsAxcwwo(ProcessList):
 
     def parse_content(self, content):
         if len(content) > 0 and "COMMAND" in content[0]:
-            self.data = parse_table(content, max_splits=2)
+            self.data = parse_delimited_table(content, max_splits=2)
         else:
             raise ParseException(
                 "PsAxcwwo: Unable to parse {0} line(s) of content:({1})".format(

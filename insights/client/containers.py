@@ -107,21 +107,6 @@ if ((DockerIsRunning and UseDocker and HaveDocker) or
         (out, err) = proc.communicate()
         return out
 
-    def get_container_name():
-        return "insights-client"
-
-    def get_image_name():
-        if config['docker_image_name']:
-            logger.debug("found docker_image_name in options: %s" % config['docker_image_name'])
-            return config['docker_image_name']
-
-        elif config['docker_image_name']:
-            logger.debug("found docker_image_name in config: %s" % config['docker_image_name'])
-            return config['docker_image_name']
-        else:
-            logger.debug("found docker_image_name in constants: %s" % constants.docker_image_name)
-            return constants.docker_image_name
-
     def use_atomic_run():
         return UseAtomic and HaveAtomic
 
@@ -131,25 +116,14 @@ if ((DockerIsRunning and UseDocker and HaveDocker) or
     def pull_image(image):
         return runcommand(shlex.split("docker pull") + [image])
 
-    def insights_client_container_is_available():
-        image_name = get_image_name()
-        if image_name:
-            pull_image(image_name)
-
-            if not _docker_image_is_available(image_name):
-                logger.debug("insights-client docker image not available: %s" % image_name)
-                return False
-            else:
-                return True
-        else:
-            return False
-
     def get_targets():
         targets = []
         logger.debug('Getting targets to scan...')
         for d in _docker_all_image_ids():
             logger.debug('Checking if %s equals %s.' % (d, config['analyze_image_id']))
-            if config['analyze_image_id'] == d or d.startswith(config['analyze_image_id']):
+            # pull the sha256: off the id to compare short IDs
+            if (config['analyze_image_id'] == d or
+               d.split('sha256:')[-1].startswith(config['analyze_image_id'])):
                 logger.debug('%s equals %s' % (d, config['analyze_image_id']))
                 targets.append({'type': 'docker_image', 'name': d})
                 return targets  # return the first one that matches
@@ -163,6 +137,7 @@ if ((DockerIsRunning and UseDocker and HaveDocker) or
         logger.debug(targets)
         if len(targets) == 0:
             logger.error("There was an error collecting targets. No image or container was found matching this ID.")
+            sys.exit(constants.sig_kill_bad)
         return targets
 
     def docker_display_name(docker_name, docker_type):
@@ -202,53 +177,6 @@ if ((DockerIsRunning and UseDocker and HaveDocker) or
             link_dict[i_id].append({'system_id': generate_analysis_target_id('docker_container', c_id),
                                     'type': 'container'})
         return link_dict
-
-    def run_in_container():
-
-        if config['from_file']:
-            logger.error('--from-file is incompatible with transfering to a container.')
-            return 1
-
-        if use_atomic_run():
-            return runcommand(["atomic", "run", "--name", get_container_name(), get_image_name(), "redhat-access-insights", "--run-here"] + sys.argv[1:])
-        else:
-            run_string = _get_run_string(get_image_name(), get_container_name())
-            if not run_string:
-                logger.debug("docker RUN label not found in image " +
-                             get_image_name() + " using fallback RUN string")
-                run_string = "docker run --privileged=true -i -a stdin -a stdout -a stderr --rm -v /var/run/docker.sock:/var/run/docker.sock -v /var/lib/docker/:/var/lib/docker/ -v /dev/:/dev/ -v /etc/redhat-access-insights/:/etc/redhat-access-insights -v /etc/pki/:/etc/pki/ " + get_image_name()
-
-            docker_args = shlex.split(run_string + " redhat-access-insights")
-
-            return runcommand(docker_args + ["--run-here"] + sys.argv[1:])
-
-    def _get_run_string(imagename, containername):
-        labelstring = _get_label(imagename, "RUN")
-        if labelstring:
-            if containername:
-                labelstring = labelstring.replace(" --name NAME", " --name " + containername)
-            else:
-                labelstring = labelstring.replace(" --name NAME", " ")
-
-            labelstring = labelstring.replace("IMAGE", imagename)
-            return labelstring
-
-        return None
-
-    def _get_label(imagename, label):
-        imagedata = _docker_inspect_image(imagename)
-        if imagedata:
-            idx = ("Config", "Labels", label)
-            if dictmultihas(imagedata, idx):
-                return dictmultiget(imagedata, idx)
-
-        return None
-
-    def _docker_image_is_available(image_name):
-        if _docker_inspect_image(image_name):
-            return True
-        else:
-            return False
 
     class AtomicTemporaryMountPoint:
         # this is used for both images and containers
@@ -418,20 +346,6 @@ else:
     else:
         the_verbiage = "Docker"
         the_exception = HaveDockerException
-
-    def insights_client_container_is_available():
-        # Don't print error here, this is the way to tell if running in a container is possible
-        # but do print debug info
-        logger.debug('not transfering to insights-client image')
-        logger.error(the_verbiage + ' is either not installed or not accessable: %s' %
-                     (the_exception if the_exception else ''))
-        return False
-
-    def run_in_container():
-        logger.error('Could not connect to ' + the_verbiage + ' to transfer into a container')
-        logger.error(the_verbiage + ' is either not installed or not accessable: %s' %
-                     (the_exception if the_exception else ''))
-        return 1
 
     def get_targets():
         logger.error('Could not connect to ' + the_verbiage + ' to collect from images and containers')

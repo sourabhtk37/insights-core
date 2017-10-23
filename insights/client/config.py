@@ -37,13 +37,12 @@ CONFIG = {
     'cert_verify': os.path.join(CONF_DIR, 'cert-api.access.redhat.com.pem'),
     'collection_rules_url': None,
     'compressor': 'gz',
-    'conf': os.path.join(CONF_DIR, 'insights-client.conf'),
+    'conf': CONF_FILE,
     'container_mode': None,
     'egg_path': '/v1/static/core/insights-core.egg',
     'debug': False,  # Used by client wrapper script
     'disable_schedule': False,
     'display_name': None,
-    'docker_image_name': None,
     'enable_schedule': False,
     'from_file': False,
     'from_stdin': False,
@@ -192,6 +191,11 @@ OPTS = [{
     'action': "store",
     'dest': "analyze_mountpoint",
 }, {
+    'opt': ['--analyze-image-id'],
+    'help': optparse.SUPPRESS_HELP,
+    'action': "store",
+    'dest': "analyze_image_id",
+}, {
     'opt': ['--test-connection'],
     'help': 'Test connectivity to Red Hat',
     'action': "store_true",
@@ -238,12 +242,6 @@ OPTS = [{
     'help': "Do not delete archive after upload",
     'action': "store_true",
     'dest': "keep_archive",
-    'group': 'debug'
-}, {
-    'opt': ['--docker-image-name'],
-    'help': optparse.SUPPRESS_HELP,
-    'action': "store",
-    'dest': "docker_image_name",
     'group': 'debug'
 }, {
     'opt': ['--use-docker'],
@@ -343,19 +341,25 @@ def compile_config():
                              if k.upper().startswith("INSIGHTS_"))
     CONFIG.update(insights_env_opts)
 
-    # TODO: If the defaults.yaml file ever fills in all the client config, then
-    # they will clobber the legacy file, even if the user has no insights.yaml
-    # defined!!
-    CONFIG.update(parse_config_file())
-
     # This is done here specifically because it's after the legacy config file
     # has been read yet before the new config file and command line arguments
     # have been parsed.
     apply_legacy_config()
 
+    # read a custom yaml file
     if "client" in settings.config:
         CONFIG.update(settings.config)
-    CONFIG.update(parse_options())
+
+    # parse the options first so we can see if a custom conf was passed in
+    parsed_options = parse_options()
+
+    # parse the config file
+    # parsed_options["conf"] will default to /etc/insights-client/insights-client.conf
+    # otherwise will read a custom conf passed in
+    CONFIG.update(parse_config_file(parsed_options["conf"]))
+
+    # after the config is read, then update the config with the options
+    CONFIG.update(parsed_options)
 
     # flags that imply no_upload
     if CONFIG['to_stdout']:
@@ -375,6 +379,14 @@ def compile_config():
     if (CONFIG['analyze_image_id'] or CONFIG['analyze_file'] or CONFIG['analyze_mountpoint']):
         CONFIG['analyze_container'] = True
         CONFIG['container_mode'] = True
+        # ASSUME --to-json unless otherwise specified
+        if not CONFIG['to_stdout']:
+            CONFIG['to_json'] = True
+
+    if (CONFIG['analyze_container']):
+        # ASSUME --to-json unless otherwise specified
+        if not CONFIG['to_stdout']:
+            CONFIG['to_json'] = True
 
     if CONFIG['offline']:
         CONFIG['no_upload'] = True

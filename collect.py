@@ -9,7 +9,6 @@ import argparse
 import logging
 import multiprocessing as mp
 import os
-import platform
 from contextlib import closing
 
 from insights.core import dr, plugins
@@ -35,8 +34,7 @@ def parse_args():
     p.add_argument("-o",
                    "--output",
                    default="output",
-                   help="Directory for results",
-                   action="store_true")
+                   help="Directory for results")
 
     p.add_argument("-v",
                    "--verbose",
@@ -80,8 +78,7 @@ def main():
     args = parse_args()
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARN)
 
-    hostname = platform.node()
-    ctx = HostContext(hostname)
+    ctx = HostContext()
 
     broker = dr.Broker()
     broker[HostContext] = ctx

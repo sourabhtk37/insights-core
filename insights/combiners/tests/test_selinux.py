@@ -86,35 +86,18 @@ SELINUX=permissive
 SELINUXTYPE=targeted
 """
 
-SELINUX_CONFIGS = [
-    (
-        {'SELINUX': 'enforcing', 'SELINUXTYPE': 'targeted'},
-        {},
-    ),
-    # Problem.
-    (
-        {'SELINUX': 'permissive', 'SELINUXTYPE': 'targeted'},
-        {BOOT_NOT_ENFORCING: 'permissive'},
-    ),
-    # Another kind of problem.
-    (
-        {'SELINUX': 'disabled', 'SELINUXTYPE': 'targeted'},
-        {BOOT_DISABLED: 'disabled'},
-    ),
-    # Changing value of SELINUXTYPE should have no effect.
-    (
-        {'SELINUX': 'enforcing', 'SELINUXTYPE': 'mls'},
-        {},
-    ),
-    (
-        {'SELINUX': 'permissive', 'SELINUXTYPE': 'blabla'},
-        {BOOT_NOT_ENFORCING: 'permissive'},
-    ),
-    (
-        {'SELINUX': 'disabled', 'SELINUXTYPE': 'barfoo'},
-        {BOOT_DISABLED: 'disabled'},
-    ),
-]
+SELINUX_CONF_COMMENTED = """
+# This file controls the state of SELinux on the system.
+# SELINUX= can take one of these three values:
+#     enforcing - SELinux security policy is enforced.
+#     permissive - SELinux prints warnings instead of enforcing.
+#     disabled - No SELinux policy is loaded.
+# SELINUX=enforcing
+# SELINUXTYPE= can take one of these two values:
+#     targeted - Targeted processes are protected,
+#     mls - Multi Level Security protection.
+SELINUXTYPE=targeted
+"""
 
 SESTATUS_TEMPLATE = {
     'loaded_policy_name': 'targeted', 'selinux_root_directory': '/etc/selinux',
@@ -123,26 +106,6 @@ SESTATUS_TEMPLATE = {
     'policy_deny_unknown_status': 'allowed', 'max_kernel_policy_version': '30'
 }
 
-SESTATUS_OUTPUTS = [
-    # No problem.
-    (
-        {'selinux_status': 'enabled', 'current_mode': 'enforcing'},
-        {},
-    ),
-    # Problematic.
-    (
-        {'selinux_status': 'disabled', 'current_mode': 'enforcing'},
-        {RUNTIME_DISABLED: 'disabled'},
-    ),
-    (
-        {'selinux_status': 'enabled', 'current_mode': 'permissive'},
-        {RUNTIME_NOT_ENFORCING: 'permissive'},
-    ),
-    (
-        {'selinux_status': 'disabled', 'current_mode': 'permissive'},
-        {RUNTIME_DISABLED: 'disabled'},
-    ),
-]
 
 # rhel-6
 GRUB1_TEMPLATE = """
@@ -390,6 +353,8 @@ TEST_CASES_1 = [
      (False, {BOOT_DISABLED: 'disabled'})),
     ((SESTATUS_OUT, SELINUX_CONF_NOT_ENFORCING, GRUB1_TEMPLATE),
      (False, {BOOT_NOT_ENFORCING: 'permissive'})),
+    ((SESTATUS_OUT, SELINUX_CONF_COMMENTED, GRUB1_TEMPLATE),
+     (False, {BOOT_NOT_ENFORCING: 'Missing in config (Permissive by default)'})),
     ((SESTATUS_OUT_DISABLED, SELINUX_CONF_NOT_ENFORCING, GRUB1_TEMPLATE),
      (False, {RUNTIME_DISABLED: 'disabled', BOOT_NOT_ENFORCING: 'permissive'})),
     ((SESTATUS_OUT_NOT_ENFORCING, SELINUX_CONF_DISABLED, GRUB1_TEMPLATE.format(kernel_boot_options='selinux=0')),
@@ -416,10 +381,7 @@ def test_integration():
         sestatus = SEStatus(context_wrap(inputs[0]))
         selinux_config = SelinuxConfig(context_wrap(inputs[1]))
         grub_config = Grub1Config(context_wrap(inputs[2]))
-        selinux = SELinux({SEStatus: sestatus,
-                           SelinuxConfig: selinux_config,
-                           Grub1Config: grub_config}
-                          )
+        selinux = SELinux(sestatus, selinux_config, grub_config, None, None)
         assert selinux.ok() == outputs[0]
         assert selinux.problems == outputs[1]
         pprint.pprint(selinux.problems)
@@ -428,10 +390,7 @@ def test_integration():
         sestatus = SEStatus(context_wrap(inputs[0]))
         selinux_config = SelinuxConfig(context_wrap(inputs[1]))
         grub_config = Grub2Config(context_wrap(inputs[2]))
-        selinux = SELinux({SEStatus: sestatus,
-                           SelinuxConfig: selinux_config,
-                           Grub2Config: grub_config}
-                          )
+        selinux = SELinux(sestatus, selinux_config, None, grub_config, None)
         assert selinux.ok() == outputs[0]
         assert selinux.problems == outputs[1]
         pprint.pprint(selinux.problems)

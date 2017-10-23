@@ -10,7 +10,7 @@ from insights.core.plugins import combiner
 from insights.parsers.krb5 import Krb5Configuration
 
 
-@combiner(requires=[Krb5Configuration])
+@combiner(Krb5Configuration)
 class AllKrb5Conf(LegacyItemAccess):
     """
     Combiner for accessing all the krb5 configuration files, the format is dict.
@@ -50,11 +50,11 @@ class AllKrb5Conf(LegacyItemAccess):
         >>> all_krb5.sections()
         ['logging', 'realms']
         >>> all_krb5.options('logging')
-        ['default', 'kdc']
+        ['default', 'kdc', 'admin_server']
         >>> all_krb5['logging']['kdc']
         'FILE:/var/log/krb5kdc.log'
         >>> all_krb5.has_option('logging', 'admin_server')
-        False
+        True
         >>> all_krb5['realms']['dns_lookup_realm']
         'false'
 
@@ -67,14 +67,14 @@ class AllKrb5Conf(LegacyItemAccess):
             directive
 
     """
-    def __init__(self, shared):
+    def __init__(self, krb5configs):
         self.data = {}
         main_data = {}
         self.includedir = []
         self.include = []
         self.module = []
 
-        for krb5_parser in shared[Krb5Configuration]:
+        for krb5_parser in krb5configs:
             if krb5_parser.file_path == "/etc/krb5.conf":
                 main_data = krb5_parser.data
                 self.includedir = krb5_parser.includedir
@@ -82,7 +82,13 @@ class AllKrb5Conf(LegacyItemAccess):
                 self.module = krb5_parser.module
             else:
                 self.data.update(krb5_parser.data)
-        self.data.update(main_data)
+        # Same options in same section from other configuration files will be covered by the option
+        # from main configuration, but different options in same section will be kept.
+        for key, value in main_data.items():
+            if key in self.data.keys():
+                self.data[key].update(value)
+            else:
+                self.data[key] = value
 
         super(AllKrb5Conf, self).__init__()
 
