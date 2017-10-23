@@ -40,7 +40,7 @@ develop = set([
     'wheel',
     'nbsphinx',
     'jupyter_client',
-    'Pygments'
+    'Pygments',
     'six'
 ])
 
