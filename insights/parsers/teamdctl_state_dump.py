@@ -1,6 +1,6 @@
 """
-teamdctl {team interface} state dump - Command
-==============================================
+TeamdctlStateDump - command ``teamdctl {team interface} state dump``
+====================================================================
 
 This module provides processing for the output of the command
 ``teamdctl {team interface} state dump`` which is JSON pattern.
@@ -45,20 +45,15 @@ Examples:
     'team0'
 """
 
-import json
-from .. import Parser, parser, defaults, LegacyItemAccess
+from .. import JSONParser, parser, defaults
 from insights.specs import teamdctl_state_dump
 
 
 @parser(teamdctl_state_dump)
-class TeamdctlStateDump(Parser, LegacyItemAccess):
+class TeamdctlStateDump(JSONParser):
     """
     Class to parse the output of ``teamdctl {team interface} state dump``.
     """
-
-    def parse_content(self, content):
-        self.data = json.loads(''.join(content))
-
     @property
     @defaults()
     def runner_type(self):

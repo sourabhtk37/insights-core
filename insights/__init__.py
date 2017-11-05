@@ -5,7 +5,7 @@ from pprint import pprint
 from .config.factory import get_config  # noqa: F401
 from .core import Scannable, LogFileOutput, Parser, IniConfigFile  # noqa: F401
 from .core import FileListing, LegacyItemAccess, SysconfigOptions  # noqa: F401
-from .core import YAMLParser                                       # noqa: F401
+from .core import YAMLParser, JSONParser  # noqa: F401
 from .core import AttributeDict  # noqa: F401
 from .core import Syslog  # noqa: F401
 from .core import archives  # noqa: F401
@@ -83,7 +83,8 @@ def _run(graph=None, root=None, run_context=HostContext,
         broker[archive_context] = archive_context(root=root)
         return dr.run(graph, broker=broker)
 
-    if archives._magic.file(root) == "application/zip":
+    from insights.util.content_type import _magic
+    if _magic.file(root) == "application/zip":
         extractor = archives.ZipExtractor()
     else:
         extractor = archives.TarExtractor()
@@ -132,6 +133,13 @@ def run(component=None, root=None, print_summary=False,
 
         for path in args.plugins:
             dr.load_components(path)
+
+        if component is None:
+            component = []
+            plugins = tuple(args.plugins)
+            for c in dr.DELEGATES:
+                if c.__module__.startswith(plugins):
+                    component.append(c)
 
     if component:
         if not isinstance(component, (list, set)):
