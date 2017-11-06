@@ -9,9 +9,35 @@ import yaml
 from insights.contrib.ConfigParser import RawConfigParser
 
 from insights.parsers import ParseException
+from insights.core import dr
+from insights.core.filters import add_filter
 from insights.core.serde import deserializer, serializer
 
 log = logging.getLogger(__name__)
+
+
+class FilterProxy(object):
+    def __init__(self, cls):
+        self.cls = cls
+        self.dep = None
+
+    def get_dep(self):
+        if self.dep is None:
+            self.dep = list(dr.get_dependencies(self.cls))[0]
+        return self.dep
+
+    def append(self, filters):
+        add_filter(self.get_dep(), filters)
+
+    def extend(self, filters):
+        add_filter(self.get_dep(), filters)
+
+
+class ParserMeta(type):
+    def __new__(cls, name, parents, dct):
+        clsobj = super(ParserMeta, cls).__new__(cls, name, parents, dct)
+        clsobj.filters = FilterProxy(clsobj)
+        return clsobj
 
 
 class Parser(object):
@@ -48,6 +74,7 @@ class Parser(object):
         >>> my_parser.file_name
         'content.conf'
     """
+    __metaclass__ = ParserMeta
 
     def __init__(self, context):
         self.file_path = context.path
@@ -245,7 +272,7 @@ class JSONParser(Parser, LegacyItemAccess):
         self.data = json.loads(''.join(content))
 
 
-class ScanMeta(type):
+class ScanMeta(ParserMeta):
     def __new__(cls, name, parents, dct):
         dct["scanners"] = []
         dct["scanner_keys"] = set()

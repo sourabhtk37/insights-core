@@ -46,16 +46,46 @@ def parser_executor(component, broker, requires, optional):
     return results
 
 
+old_args = set("local shared".split())
+
+
+def compat_executor(component, broker, requires, optional):
+    missing_requirements = dr.get_missing_requirements(requires, broker)
+    if missing_requirements:
+        raise dr.MissingRequirements(missing_requirements)
+    return component({}, broker)
+
+
 def rule_executor(component, broker, requires, optional, executor=dr.default_executor):
     try:
-        r = executor(component, broker, requires, optional)
+        argnames = set(inspect.getargspec(component).args)
+        if old_args & argnames:
+            r = compat_executor(component, broker, requires, optional)
+        else:
+            r = executor(component, broker, requires, optional)
+
         if r is None:
             raise dr.SkipComponent(dr.get_name(component))
+
     except dr.MissingRequirements as mr:
         details = dr.stringify_requirements(mr.requirements)
         r = make_skip(dr.get_name(component),
                 reason="MISSING_REQUIREMENTS", details=details)
     validate_response(r)
+    return r
+
+
+def cond_incident_executor(component, broker, requires, optional, executor=dr.default_executor):
+    target = component.__init__ if inspect.isclass(component) else component
+    argnames = set(inspect.getargspec(target).args)
+    if old_args & argnames:
+        r = compat_executor(component, broker, requires, optional)
+    else:
+        r = executor(component, broker, requires, optional)
+
+    if r is None:
+        raise dr.SkipComponent(dr.get_name(component))
+
     return r
 
 
@@ -118,7 +148,7 @@ def make_rule_type(name=None,
         if kwargs.get("cluster"):
             kwargs["group"] = dr.GROUPS.cluster
 
-        kwargs["component_type"] = decorator
+        kwargs["component_type"] = kwargs.get("component_type") or decorator
 
         return _type(*requires, **kwargs)
 
@@ -135,21 +165,29 @@ def make_rule_type(name=None,
     return decorator
 
 
-combiner = dr.new_component_type("combiner")
+combiner = dr.new_component_type("combiner", executor=cond_incident_executor)
 """ A component that connects other components. """
-
-stage = combiner
 
 rule = make_rule_type(name="rule")
 """ A component that can see all parsers and combiners for a single host."""
 
+
+def cluster_rule(requires=[], optional=[]):
+    def _f(component):
+        return rule(requires=requires, optional=optional, cluster=True, component_type=cluster_rule)(component)
+    return _f
+
+
+RULE_TYPES.add(cluster_rule)
+
+
 fava_rule = make_rule_type(name="fava_rule", use_broker_executor=True)
 """ A component that can see all parsers and combiners for a single host."""
 
-condition = dr.new_component_type("condition")
+condition = dr.new_component_type("condition", executor=cond_incident_executor)
 """ A component used by rules that allows automated statistical analysis."""
 
-incident = dr.new_component_type("incident")
+incident = dr.new_component_type("incident", executor=cond_incident_executor)
 """ A component used by rules that allows automated statistical analysis."""
 
 

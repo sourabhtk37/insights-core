@@ -520,7 +520,7 @@ def broker_executor(func, broker, requires=[], optional=[]):
     return func(broker)
 
 
-def default_executor(func, broker, requires=[], optional=[]):
+def default_executor(component, broker, requires=[], optional=[]):
     """ Use this executor if your component signature matches your
         dependency list. Can be used on individual components or
         in component type definitions.
@@ -536,7 +536,7 @@ def default_executor(func, broker, requires=[], optional=[]):
             args.append(r)
     args.extend(optional)
     args = [broker.get(a) for a in args]
-    return func(*args)
+    return component(*args)
 
 
 def new_component_type(name=None,
