@@ -59,7 +59,7 @@ def compat_executor(component, broker, requires, optional):
 def rule_executor(component, broker, requires, optional, executor=dr.default_executor):
     try:
         argnames = set(inspect.getargspec(component).args)
-        if old_args & argnames:
+        if old_args & argnames and executor is dr.default_executor:
             r = compat_executor(component, broker, requires, optional)
         else:
             r = executor(component, broker, requires, optional)
