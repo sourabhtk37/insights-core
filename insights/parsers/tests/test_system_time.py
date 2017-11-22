@@ -147,6 +147,16 @@ ZERO_HOSTS_NTP_CONF = """
 broadcastclient
 """
 
+NTP_TINKER_CONF = """
+driftfile /var/lib/ntp/ntp.drift
+restrict default kod nomodify notrap nopeer noquery
+restrict 127.0.0.1
+server 192.168.17.62 iburst
+tinker step 0.9
+tinker step step
+tinker step 0.4
+"""
+
 
 def test_chrony_conf():
     result = system_time.ChronyConf(context_wrap(CHRONY_CONF)).data
@@ -288,6 +298,9 @@ class TestNTPConfig(unittest.TestCase):
         assert ntp_obj.peers == \
             ['ntp1.example.com', 'ntp2.example.com', 'ntp3.example.com']
 
+        # Test get_tinker with no tinker
+        assert ntp_obj.get_tinker('panic') is None
+
     def test_zero_hosts_ntp_conf(self):
         ntp_obj = system_time.NTP_conf(context_wrap(ZERO_HOSTS_NTP_CONF))
         assert ntp_obj
@@ -299,3 +312,12 @@ class TestNTPConfig(unittest.TestCase):
         assert ntp_obj.servers == []
         assert hasattr(ntp_obj, 'peers')
         assert ntp_obj.peers == []
+
+    def test_ntp_get_tinker(self):
+        ntp_obj = system_time.NTP_conf(context_wrap(NTP_TINKER_CONF))
+        assert ntp_obj
+        assert hasattr(ntp_obj, 'data')
+        assert 'tinker' in ntp_obj.data
+        # tinker defined but panic not one of its parameters
+        assert ntp_obj.get_tinker('panic') is None
+        assert ntp_obj.get_tinker('step') == '0.4'

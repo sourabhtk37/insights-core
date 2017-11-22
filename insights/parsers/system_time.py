@@ -103,7 +103,30 @@ class NTP_conf(NTPConfParser):
 
     Uses the ``NTPConfParser`` class defined in this module.
     """
-    pass
+    def get_tinker(self, param):
+        """
+        Get the 'tinker' parameter, since that is commonly checked in rules.
+        This finds the last declaration of the given parameter (which is the
+        one which takes effect), or None if the 'tinker' configuration is not
+        present or the given parameter is not found in the tinker
+        configuration items.
+
+        Parameters:
+            param(str): The parameter name, e.g. 'panic' or 'step'
+
+        Returns:
+            str or None: The value of the given parameter, or None if not
+            found.
+        """
+        if 'tinker' not in self.data:
+            return None
+        # Reverse search so we can exit on first match
+        for line in reversed(self.data['tinker']):
+            words = line.strip().split()
+            # Line must contain param and value:
+            if len(words) > 1 and words[0] == param:
+                return ' '.join(words[1:])
+        # param not found, so return None implicitly
 
 
 @parser("localtime")
