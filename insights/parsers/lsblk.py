@@ -102,7 +102,7 @@ Examples:
 
 import re
 from .. import Parser, parser
-from . import ParseException, keyword_search
+from . import ParseException, keyword_search, parse_fixed_table
 
 MAX_GENERATIONS = 20
 
@@ -219,31 +219,71 @@ class LSBlock(BlockDevices):
         See the discussion of the key ``PARENT_NAMES`` above.
     """
     def parse_content(self, content):
-        r = re.compile(r"([\s\|\`\-]*)(\S+.*) (\d+:\d+)\s+(\d)\s+(\d+(\.\d)?[A-Z])\s+(\d)\s+([a-z]+)(.*)")
-        device_list = []
-        parents = [None] * MAX_GENERATIONS
-        for line in content[1:]:
-            name_match = r.match(line)
-            generation = 0
-            if name_match and len(name_match.groups()) == 9:
-                device = {}
-                name = name_match.group(2).strip()
-                generation = len(name_match.group(1)) / 2
-                parents[generation] = name
-                device['NAME'] = name
-                device['MAJ_MIN'] = name_match.group(3)
-                device['REMOVABLE'] = bool(int(name_match.group(4)))
-                device['SIZE'] = name_match.group(5)
-                device['READ_ONLY'] = bool(int(name_match.group(7)))
-                # TYPE is enforced by the regex, no need to check here
-                device['TYPE'] = name_match.group(8)
-                mountpoint = name_match.group(9).strip()
-                if len(mountpoint) > 0:
-                    device['MOUNTPOINT'] = mountpoint
-                if generation > 0:
-                    device['PARENT_NAMES'] = parents[:generation]
-                device_list.append(device)
+        # Find the heading line, or raise an exception
+        heading = ''
+        for line in content:
+            if line.startswith('NAME'):
+                heading = line
+                break
+        if not heading:
+            raise ParseException('Heading not found in lsblk output')
+        # We need to change the 'SIZE' header from right to left justified.
+        # This involves determining the distance between the RM and SIZE
+        # columns and then left-justifying SIZE in that space.
+        # Width of 'SIZE' column = distance between 'RM' and 'SIZE', minus
+        # the width of 'RM ', plus the width of 'SIZE'.
+        width = (heading.index('SIZE') - heading.index('RM')) - len('RM ') + len('SIZE')
+        old_header = ('{:>' + str(width) + '}').format('SIZE')
+        new_header = ('{:<' + str(width) + '}').format('SIZE')
 
+        # Also, we need to keep the space in front of the indent to work out
+        # the generation length, but the so we replace that with dots.
+        def fix_indent(line):
+            if line[0] == ' ' and '-' in line:
+                idx = line.index('-')
+                return line[:idx].replace(' ', '.') + line[idx:]
+            else:
+                return line
+
+        # Process entire table into dicts - also strips fields.
+        device_list = parse_fixed_table(
+            [
+                fix_indent(line)
+                for line in content
+            ], heading_ignore=['NAME'],
+            header_substitute=((old_header, new_header), ('MAJ:MIN', 'MAJ_MIN'))
+        )
+
+        # And then update columns for ease of use
+        name_re = re.compile(r'^(?P<indent>[.| `-]*)(?P<name>\w+.*?)\s*$')
+        parents = []
+        self.device_data = dict()
+        for row in rows:
+            # Process whole NAME field into device name and parents
+            match = name_re.match(row['NAME'])
+            generation = 0
+            if match:
+                indent, name = match.group('indent', 'name')
+                generation = len(indent) / 2
+                if generation == len(parents):
+                    parents.append(name)
+                else:
+                    parents[generation] = name
+                row['NAME'] = name
+            else:
+                # Unknown formatting - don't attempt to update the parents,
+                # just assume the NAME field is already correct.
+                pass
+            if generation > 0:
+                row['PARENT_NAMES'] = parents[:generation]
+            row['REMOVABLE'] = int(row['RM']) == 1
+            row['READ_ONLY'] = int(row['RO']) == 1
+            # Not convinced this is a good idea, but the previous parser
+            # removed the mountpoint attribute if the device wasn't mounted
+            if not row['MOUNTPOINT']:
+                del row['MOUNTPOINT']
+
+        # Finally convert to BlockDevice objects.
         self.rows = [BlockDevice(d) for d in device_list]
         self.device_data = {dev.name: dev for dev in self.rows}
 
