@@ -431,7 +431,7 @@ def redhat_release(major, minor=""):
         raise Exception("invalid major version: %s" % major)
 
 
-def test_examples_in_doc_of(parser, docs):
+def doc_test_examples_in(parser, docs):
     """
     This function looks in the documentation given for an indented block
     (following a ``\:\:``) and an `Examples\:` section.  The indented block
@@ -496,6 +496,7 @@ def test_examples_in_doc_of(parser, docs):
     # and asserting that they are equal.
     expression = ''
     output = ''
+
     def check_evaluation():
         # Output value should not need local environment.
         expval = eval(expression, {}, local_env)
@@ -531,7 +532,8 @@ def test_examples_in_doc_of(parser, docs):
     if expression and output:
         check_evaluation()
 
-def test_doc_examples(parser_module):
+
+def doc_test_examples(parser_module):
     """
     Test the example usage in a parser module and its parser classes against
     the sample output in the documentation.
@@ -551,9 +553,7 @@ def test_doc_examples(parser_module):
     ]
 
     if len(parsers) == 1:
-        print "testing one parser:", parsers[0]
-        test_examples_in_doc_of(parsers[0], parser_module.__doc__)
+        doc_test_examples_in(parsers[0], parser_module.__doc__)
     elif len(parsers) > 1:
-        for parser in parsers:
-            print "testing parser:", parser
-            test_examples_in_doc_of(parser, parser.__doc__)
+        for parser_ in parsers:
+            doc_test_examples_in(parser_, parser.__doc__)
