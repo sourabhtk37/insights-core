@@ -5,6 +5,7 @@ import pprint
 import json
 import sys
 import tempfile
+import warnings
 from collections import defaultdict
 from functools import wraps
 from itertools import islice
@@ -428,3 +429,131 @@ def redhat_release(major, minor=""):
         return template % (major, "." + minor, name)
     else:
         raise Exception("invalid major version: %s" % major)
+
+
+def test_examples_in_doc_of(parser, docs):
+    """
+    This function looks in the documentation given for an indented block
+    (following a ``\:\:``) and an `Examples\:` section.  The indented block
+    is stripped of leading space and read as test data, and put in a 'shared'
+    dictionary against the given parser using the `'context_wrap'` function.
+    This is stored in a dictionary of local declarations, to be used in later
+    evaluation.
+
+    Each example line preceded by '`>>> `' is assumed to be a command and
+    `eval`uated, and the result is asserted to be equal to any non-'>>> '
+    indented lines (also `eval`'ed).  The `'variable' = shared['parser']`
+    declaration is used to set the given name in the local declarations
+    dictionary.
+    """
+    if not (docs is not None and '::' in docs and 'Examples:' in docs):
+        return
+
+    def get_indent(line):
+        # From the start to the character that isn't stripped by lstrip().
+        return line[0:line.index(line.lstrip()[0])]
+
+    input_data = []
+    examples = []
+    # Gather input data and examples first, then parse.
+    input_data_indent = 'not in input data'  # Set to the actual indent if in input data
+    examples_indent = 'not in examples'      # Set to the actual indent if in examples
+    for line in docs.splitlines():
+        if line.endswith('::'):
+            input_data_indent = get_indent(line)
+        elif input_data_indent != 'not in input data':
+            if line.strip() == '':
+                # Input data is surrounded with blanks - ignore them.
+                continue
+            elif get_indent(line) > input_data_indent:
+                # Indented line - collect.
+                input_data.append(line.strip())
+            else:
+                # Back to previous indent.
+                input_data_indent = 'not in input data'
+        # Input data can immediately be followed by 'Examples', so we leave
+        # that if/then/else clause and start a new one.
+        if line.endswith('Examples:'):
+            examples_indent = get_indent(line)
+        elif examples_indent != 'not in examples':
+            if line.strip() == '':
+                # Example data can be surrounded with blanks - ignore them.
+                continue
+            elif get_indent(line) > examples_indent:
+                # Indented line - collect.
+                examples.append(line.strip())
+            else:
+                # Back to previous indent.
+                examples_indent = 'not in examples'
+
+    # Naively parse all the collected input data with the given parser
+    local_env = {
+        parser.__name__: parser,
+        'shared': {parser: parser(context_wrap(input_data))}
+    }
+
+    # Now run through the examples collecting a declaration and its output,
+    # and asserting that they are equal.
+    expression = ''
+    output = ''
+    def check_evaluation():
+        # Output value should not need local environment.
+        expval = eval(expression, {}, local_env)
+        outval = eval(output)
+        if expval != outval:
+            warnings.warn("Documentation expression {e} does not match {o}".format(
+                e=expression, o=output, ev=expval, ov=outval
+            ))
+        if outval is True or outval is False or outval is None:
+            assert eval(expression, {}, local_env) is outval
+        else:
+            assert eval(expression, {}, local_env) == outval
+
+    for line in examples:
+        if line.startswith('>>> '):
+            # Process the old expression, if we have one:
+            if expression:
+                if ' = ' in expression:
+                    # variable = expression
+                    words = expression.split(None, 3)
+                    assert words[1] == '='
+                    local_env[words[0]] = eval(words[2], {}, local_env)
+                else:
+                    # expression by itself - compare to output
+                    # output should not rely on local environment
+                    check_evaluation()
+            # Store the new declaration
+            expression = line[4:]
+            output = ''
+        else:
+            # Concatenate output together.
+            output += ' ' + line
+    if expression and output:
+        check_evaluation()
+
+def test_doc_examples(parser_module):
+    """
+    Test the example usage in a parser module and its parser classes against
+    the sample output in the documentation.
+
+    This uses the `_test_examples_in_doc_of()` function above to test the
+    documentation in both the parser module and each of its classes.
+
+    If the parser module given only contains one parser, the documentation for
+    it is assumed to be in the parser module.  If there is more than one
+    parser, the module documentation is ignored and the documentation of the
+    parser itself is assumed to contain the input data and examples.
+    """
+    parsers = [
+        decl
+        for decl in parser_module.__dict__.values()
+        if hasattr(decl, '__module__') and decl.__module__ == parser_module.__name__
+    ]
+
+    if len(parsers) == 1:
+        print "testing one parser:", parsers[0]
+        test_examples_in_doc_of(parsers[0], parser_module.__doc__)
+    elif len(parsers) > 1:
+        for parser in parsers:
+            print "testing parser:", parser
+            test_examples_in_doc_of(parser, parser.__doc__)
