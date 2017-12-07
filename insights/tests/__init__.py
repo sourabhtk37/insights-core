@@ -522,22 +522,22 @@ def doc_test_examples_in(parser, docs):
     def check_evaluation():
         try:
             expval = eval(expression, {}, local_env)
-        except Exception as exc:
-            warnings.warn("Problem with evaluating expression '{e}': {exc}".format(
-                e=expression, exc=exc
+        except:
+            warnings.warn("In {p.__name__}, problem with evaluating expression '{e}': {exc}".format(
+                p=parser, e=expression, exc=sys.exc_info()[0]
             ))
             return
         # Output value should not need local environment.
         try:
             outval = eval(output)
-        except Exception as exc:
-            warnings.warn("Problem with evaluating expected output '{o}': {exc}".format(
-                o=output, exc=exc
+        except:
+            warnings.warn("In {p.__name__}, problem with evaluating expected output '{o}': {exc}".format(
+                p=parser, o=output, exc=sys.exc_info()[0]
             ))
             return
         if expval != outval:
-            warnings.warn("Documentation expression '{e}' does not match '{o}' (is actually '{ev}')".format(
-                e=expression, o=output, ev=expval, ov=outval
+            warnings.warn("In {p.__name__}, documentation expression '{e}' does not match '{o}' (is actually '{ev}')".format(
+                p=parser, e=expression, o=output, ev=expval, ov=outval
             ))
 
     for line in examples:
