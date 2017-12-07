@@ -564,4 +564,4 @@ def doc_test_examples(parser_module):
         doc_test_examples_in(parsers[0], parser_module.__doc__)
     elif len(parsers) > 1:
         for parser_ in parsers:
-            doc_test_examples_in(parser_, parser.__doc__)
+            doc_test_examples_in(parser_, parser_.__doc__)
