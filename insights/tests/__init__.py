@@ -498,17 +498,25 @@ def doc_test_examples_in(parser, docs):
     output = ''
 
     def check_evaluation():
+        try:
+            expval = eval(expression, {}, local_env)
+        except Exception as exc:
+            warnings.warn("Problem with evaluating expression '{e}': {exc}".format(
+                e=expression, exc=exc
+            ))
+            return
         # Output value should not need local environment.
-        expval = eval(expression, {}, local_env)
-        outval = eval(output)
+        try:
+            outval = eval(output)
+        except Exception as exc:
+            warnings.warn("Problem with evaluating expected output '{o}': {exc}".format(
+                o=output, exc=exc
+            ))
+            return
         if expval != outval:
-            warnings.warn("Documentation expression {e} does not match {o}".format(
+            warnings.warn("Documentation expression '{e}' does not match '{o}' (is actually '{ev}')".format(
                 e=expression, o=output, ev=expval, ov=outval
             ))
-        if outval is True or outval is False or outval is None:
-            assert eval(expression, {}, local_env) is outval
-        else:
-            assert eval(expression, {}, local_env) == outval
 
     for line in examples:
         if line.startswith('>>> '):
