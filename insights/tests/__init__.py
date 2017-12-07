@@ -524,12 +524,10 @@ def doc_test_examples_in(parser, docs):
             if expression:
                 if ' = ' in expression:
                     # variable = expression
-                    words = expression.split(None, 3)
+                    words = expression.split(None, 2)
                     assert words[1] == '='
                     local_env[words[0]] = eval(words[2], {}, local_env)
                 else:
-                    # expression by itself - compare to output
-                    # output should not rely on local environment
                     check_evaluation()
             # Store the new declaration
             expression = line[4:]
