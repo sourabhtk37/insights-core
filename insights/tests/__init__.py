@@ -480,9 +480,15 @@ def doc_test_examples_in(parser, docs):
             if line.strip() == '':
                 # Input data is surrounded with blanks - ignore them.
                 continue
-            elif get_indent(line) > input_data_indent:
+            elif get_indent(line) >= input_data_indent:
                 # Indented line - collect.
-                input_data.append(line.strip())
+                # We need to only strip as much space as the indent.  We could
+                # just assume eight spaces here, but instead we'll try to be
+                # clever and detect it.  We take the indent of the first line
+                # (i.e. input_data is empty) and strip only that much off.
+                if input_data == []:
+                    input_data_indent = get_indent(line)
+                input_data.append(line[len(input_data_indent):])
             else:
                 # Back to previous indent.
                 input_data_indent = 'not in input data'
@@ -496,6 +502,7 @@ def doc_test_examples_in(parser, docs):
                 continue
             elif get_indent(line) > examples_indent:
                 # Indented line - collect.
+                # Here we always ignore surrounding spaces - easier.
                 examples.append(line.strip())
             else:
                 # Back to previous indent.
