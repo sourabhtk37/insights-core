@@ -1,9 +1,10 @@
 from insights.parsers.netstat import Netstat, NetstatAGN, NetstatS, Netstat_I, SsTULPN
-from insights.tests import context_wrap
+from insights.tests import context_wrap, doc_test_examples
 from insights.parsers import netstat
 from ...parsers import ParseException
 
 import pytest
+
 
 NETSTAT_S = '''
 Ip:
@@ -120,6 +121,9 @@ class TestNetstats():
     def test_netstat_s(self):
         info = NetstatS(context_wrap(NETSTAT_S)).data
 
+        assert sorted(info.keys()) == [
+            'icmp', 'icmpmsg', 'ip', 'ipext', 'tcp', 'tcpext', 'udp', 'udplite',
+        ]
         assert info['ip'] == {'total_packets_received': '3405107',
                               'forwarded': '0',
                               'incoming_packets_discarded': '0',
@@ -524,3 +528,7 @@ def test_ss_tulpn_get_port():
     exp02 = [{'Netid': 'udp', 'Process': 'users:(("rpc.statd",pid=29559,fd=10))', 'Peer-Address-Port': ':::12345', 'Send-Q': '0', 'Local-Address-Port': ':::37968', 'State': 'UNCONN', 'Recv-Q': '0'}]
     assert ss.get_peerport("12345") == exp02
     assert ss.get_port("12345") == exp02
+
+
+def test_netstat_docs():
+    doc_test_examples(netstat)
