@@ -434,17 +434,32 @@ def redhat_release(major, minor=""):
 def doc_test_examples_in(parser, docs):
     """
     This function looks in the documentation given for an indented block
-    (following a ``\:\:``) and an `Examples\:` section.  The indented block
+    (following a ``::``) and an ``Examples:`` section.  The indented block
     is stripped of leading space and read as test data, and put in a 'shared'
     dictionary against the given parser using the `'context_wrap'` function.
     This is stored in a dictionary of local declarations, to be used in later
     evaluation.
 
-    Each example line preceded by '`>>> `' is assumed to be a command and
-    `eval`uated, and the result is asserted to be equal to any non-'>>> '
-    indented lines (also `eval`'ed).  The `'variable' = shared['parser']`
-    declaration is used to set the given name in the local declarations
-    dictionary.
+    Each example line preceded by ``>>>`` is assumed to be a command and
+    ``eval``'ed, and the result is asserted to be equal to any non-``>>>``
+    indented lines (which are stripped, concantenated and then also
+    ``eval``'ed).  The ``'variable' = shared['parser']`` declaration is used
+    to set the given name in the local declarations dictionary.
+
+    Some attempt is made to set up the local evaluation environment but it is
+    not assumed to be a complete Python environment. In particular, other
+    statements that are not 'variable = value' or 'expression' are not
+    parsed. Only 'variable = value' statements update the local environment.
+
+    The local environment is set up to contain two things:
+
+     * the parser (in the way that the statement ``from
+       insights.parsers.parser_module import parser_class`` would)
+     * a 'shared' dictionary which has a reference to this parser by class
+       (in the same way that the 'shared' environment is provided to a rule).
+
+
+
     """
     if not (docs is not None and '::' in docs and 'Examples:' in docs):
         return
@@ -551,6 +566,17 @@ def doc_test_examples(parser_module):
     it is assumed to be in the parser module.  If there is more than one
     parser, the module documentation is ignored and the documentation of the
     parser itself is assumed to contain the input data and examples.
+
+    To use this you can include the following code in your test module:
+
+    .. code-block:: python
+
+        from insights.tests import doc_test_examples
+        from insights.parsers import {your_module}
+
+        def test_documentation():
+            doc_test_examples({your_module})
+
     """
     parsers = [
         decl

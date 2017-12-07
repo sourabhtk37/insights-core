@@ -34,7 +34,7 @@ only moving the documentation down into each parser when it is specific to the p
 For instance if there is only one parser in a module then almost all of the documentation
 will be in the module section.  If there are multiple parsers that are very similar then
 most of the documentation will be in the module section and only the unique details will
-be in each parser's class.  
+be in each parser's class.
 
 Look at the example code in this article and also review the source files for
 these parsers and see how the documentation has been organized.
@@ -94,7 +94,7 @@ in code contributed to the insights-core project:
        >>> "0d:00.0" in pci_info
        True
    """
-   from .. import LogFileOutput, parser 
+   from .. import LogFileOutput, parser
 
 
    @parser('lspci')
@@ -128,7 +128,7 @@ The second line is the name of the module and a descriptive phrase.  In this cas
 the file is **lspci.py**, the module is **lspci** and it is a command.  An example
 of a file parser would be file **fstab.py**, module name **fstab** and descriptive
 phrase'File /etc/fstab'.  The module
-name line is followed by a line of ``=`` characters that is the same length as the 
+name line is followed by a line of ``=`` characters that is the same length as the
 entire module line.  A blank line follows the module information.
 
 Description
@@ -155,7 +155,7 @@ Description
    whether a particular string is in the ``lspci`` output.  Other methods/operators
    are also supported, see the :py:class:`insights.core.LogFileOutput` class for more information.
 
-Next comes the description of the module. 
+Next comes the description of the module.
 Since this description is the first thing a developer will see when viewing
 the documentation it is important that the description is clear, concise and useful.
 Include elements of the module that would not be obvious from looking at the code.
@@ -226,14 +226,15 @@ refer to the input samples provide in the *Examples* section from the comments.
 Testing Your Docstring
 ======================
 
-Once you have implemented a parser with the recommended documentation style you will
-need to include it in the insights-core documentation.  You can do this by creating a file
-in the directory ``insights-core/docs/shared_parsers_catalog/`` that has the same name
-as your parser
-module name, except with a ``.rst`` extension instead of a ``.py`` extension.  For
-example if your parser module is named ``your_parser.py`` then create a file
-``insights-core/docs/shared_parsers_catalog/your_parser.rst`` and include the following
-three lines in the file::
+Once you have implemented a parser with the recommended documentation style
+you will need to include it in the insights-core documentation.  You can do
+this by creating a file in the directory
+``insights-core/docs/shared_parsers_catalog/`` that has the same name as your
+parser module name, except with a ``.rst`` extension instead of a ``.py``
+extension.  For example if your parser module is named ``your_parser.py``
+then create a file
+``insights-core/docs/shared_parsers_catalog/your_parser.rst`` and include the
+following three lines in the file::
 
    .. automodule:: insights.parsers.your_parser
       :members:
@@ -269,6 +270,26 @@ port 8000::
 Once you have verified that the documentation was created correctly, check in your
 code and the ``.rst`` file and submit a pull request.
 
+Testing the code in your Docstring
+----------------------------------
+
+The code in the ``Examples`` section of your docstring can be automatically
+tested against the input data given in an indented section preceded by the
+``::`` Sphinx directive.  To do this, you need the following code in your
+test module:
+
+.. code-block:: python
+
+    from insights.tests import doc_test_examples
+    from insights.parsers import {your_module}
+
+    def test_documentation():
+        doc_test_examples({your_module})
+
+More documentation on how this works can be found in the
+:py:func:`insights.tests.doc_test_examples` and
+:py:func:`insights.tests.doc_test_examples_in` functions.
+
 Rendered HTML
 =============
 
@@ -280,7 +301,7 @@ The following show how the ``lspci`` module documentation is rendered as HTML.
 References
 ==========
 * `Sphinx Docs`_
-* List of Docstring headings supported by Sphinx Napoleon `Sphinx Section Names`_ 
+* List of Docstring headings supported by Sphinx Napoleon `Sphinx Section Names`_
 * `reStructuredText Docs`_
 * `Google Docstring Style`_
 * `Python Doctest Docs`_
