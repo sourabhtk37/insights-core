@@ -462,7 +462,7 @@ def doc_test_examples_in(parser, docs):
 
     """
     if not (docs is not None and '::' in docs and 'Examples:' in docs):
-        return
+        return 0
 
     def get_indent(line):
         # From the start to the character that isn't stripped by lstrip().
@@ -520,13 +520,14 @@ def doc_test_examples_in(parser, docs):
     output = ''
 
     def check_evaluation():
+        # Return number of errors found, for external sum
         try:
             expval = eval(expression, {}, local_env)
         except:
             warnings.warn("In {p.__name__}, problem with evaluating expression '{e}': {exc}".format(
                 p=parser, e=expression, exc=sys.exc_info()[0]
             ))
-            return
+            return 1
         # Output value should not need local environment.
         try:
             outval = eval(output)
@@ -534,11 +535,15 @@ def doc_test_examples_in(parser, docs):
             warnings.warn("In {p.__name__}, problem with evaluating expected output '{o}': {exc}".format(
                 p=parser, o=output, exc=sys.exc_info()[0]
             ))
-            return
+            return 1
         if expval != outval:
             warnings.warn("In {p.__name__}, documentation expression '{e}' does not match '{o}' (is actually '{ev}')".format(
                 p=parser, e=expression, o=output, ev=expval, ov=outval
             ))
+            return 1
+        return 0
+
+    doc_test_errors = 0
 
     for line in examples:
         if line.startswith('>>> '):
@@ -550,7 +555,7 @@ def doc_test_examples_in(parser, docs):
                     assert words[1] == '='
                     local_env[words[0]] = eval(words[2], {}, local_env)
                 else:
-                    check_evaluation()
+                    doc_test_errors += check_evaluation()
             # Store the new declaration
             expression = line[4:]
             output = ''
@@ -558,7 +563,9 @@ def doc_test_examples_in(parser, docs):
             # Concatenate output together.
             output += ' ' + line
     if expression and output:
-        check_evaluation()
+        doc_test_errors += check_evaluation()
+
+    return doc_test_errors
 
 
 def doc_test_examples(parser_module):
@@ -592,7 +599,7 @@ def doc_test_examples(parser_module):
     ]
 
     if len(parsers) == 1:
-        doc_test_examples_in(parsers[0], parser_module.__doc__)
+        assert doc_test_examples_in(parsers[0], parser_module.__doc__) == 0
     elif len(parsers) > 1:
-        for parser_ in parsers:
-            doc_test_examples_in(parser_, parser_.__doc__)
+        for p in parsers:
+            assert doc_test_examples_in(p, p.__doc__) == 0
