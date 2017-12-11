@@ -357,6 +357,21 @@ class Netstat(Parser):
         '127.0.0.1:27017'
         >>> ns.lines[intcons][1]  # The raw line
         'tcp        0      0 127.0.0.1:27017         0.0.0.0:*               LISTEN      184        20380      2007/mongod          off (0.00/0/0)'
+        >>> ns.get_original_line(intcons, 1)  # Alternative way of getting line
+        'tcp        0      0 127.0.0.1:27017         0.0.0.0:*               LISTEN      184        20380      2007/mongod          off (0.00/0/0)'
+        >>> ns.running_processes  # All running processes on internet ports
+        set(['qpidd', 'mongod', 'Passenger Rac', 'qdrouterd'])
+        >>> ns.listening_pid  # All PIDs listening on internet ports, with info
+        {'1279': {'addr': '0.0.0.0', 'port': '5672', 'name': 'qpidd'},
+         '2007': {'addr': '127.0.0.1', 'port': '27017', 'name': 'mongod'},
+         '12387': {'addr': '127.0.0.1', 'port': '53644', 'name': 'Passenger Rac'},
+         '1272': {'addr': '0.0.0.0', 'port': '5646', 'name': 'qdrouterd'},
+        }
+        >>> ns.search(Type='DGRAM')  # Parsing bug - Proto should not be in RefCnt
+        [{'RefCnt': 'unix  2', 'Flags': '[ ]', 'Type': 'DGRAM',
+          'State': '', 'I-Node': '11776', 'PID/Program name': '1/systemd',
+          'Path': '/run/systemd/shutdownd'
+        }]
     """
 
     def parse_content(self, content):
@@ -579,12 +594,13 @@ class SsTULPN(Parser):
     Sample input data looks like::
 
         Netid  State      Recv-Q Send-Q Local Address:Port               Peer Address:Port
-        udp    UNCONN     0      0         *:55898                 *:*
-        udp    UNCONN     0      0      127.0.0.1:904                   *:*                   users:(("rpc.statd",pid=29559,fd=7))
-        udp    UNCONN     0      0         *:111                   *:*                   users:(("rpcbind",pid=953,fd=9))
-        udp    UNCONN     0      0        :::37968                :::12345                    users:(("rpc.statd",pid=29559,fd=10))
+        udp    UNCONN     0      0                  *:55898                 *:*
+        udp    UNCONN     0      0          127.0.0.1:904                   *:*                   users:(("rpc.statd",pid=29559,fd=7))
+        udp    UNCONN     0      0                  *:111                   *:*                   users:(("rpcbind",pid=953,fd=9))
+        udp    UNCONN     0      0                 :::37968                :::12345               users:(("rpc.statd",pid=29559,fd=10))
+        tcp    LISTEN     0      128                *:111                   *:*                   users:(("rpcbind",pid=1139,fd=5),("systemd",pid=1,fd=41))
 
-    This class parse the input as a table with header:
+    This class parses the input as a table with the header:
         "Netid  State  Recv-Q  Send-Q  Local-Address-Port Peer-Address-Port  Process"
 
     Examples:
@@ -598,19 +614,22 @@ class SsTULPN(Parser):
          'State': 'UNCONN',
          'Recv-Q': '0'}
         >>> ss.get_service("rpcbind")
-        [{'Netid': 'udp',
-          'Process': 'users:(("rpcbind",pid=953,fd=9))',
-          'Peer-Address-Port': '*:*',
-          'Send-Q': '0', 'Local-Address-Port': '*:111',
-          'State': 'UNCONN',
-          'Recv-Q': '0'}]
-        >>> ss.get_port("55898")
-        [{'Netid': 'udp',
-         'Peer-Address-Port': '*:*',
-         'Send-Q': '0',
-         'Local-Address-Port': '*:55898',
-         'State': 'UNCONN',
-         'Recv-Q': '0'}]
+        [{'Netid': 'udp', 'State': 'UNCONN', 'Recv-Q': '0', 'Send-Q': '0',
+          'Local-Address-Port': '*:111', 'Peer-Address-Port': '*:*',
+          'Process': 'users:(("rpcbind",pid=953,fd=9))'},
+         {'Netid': 'tcp', 'State': 'LISTEN', 'Recv-Q': '0', 'Send-Q': '128',
+          'Local-Address-Port': '*:111', 'Peer-Address-Port': '*:*',
+          'Process': 'users:(("rpcbind",pid=1139,fd=5),("systemd",pid=1,fd=41))'}]
+        >>> ss.get_port("55898")  # Both local and peer port searched
+        [{'Netid': 'udp', 'Peer-Address-Port': '*:*', 'Send-Q': '0',
+         'Local-Address-Port': '*:55898', 'State': 'UNCONN', 'Recv-Q': '0'}]
+        >>> ss.get_localport('111')  # Only local port or address searched
+        [{'Netid': 'udp', 'State': 'UNCONN', 'Recv-Q': '0', 'Send-Q': '0',
+          'Local-Address-Port': '*:111', 'Peer-Address-Port': '*:*',
+          'Process': 'users:(("rpcbind",pid=953,fd=9))'},
+         {'Netid': 'tcp', 'State': 'LISTEN', 'Recv-Q': '0', 'Send-Q': '128',
+          'Local-Address-Port': '*:111', 'Peer-Address-Port': '*:*',
+          'Process': 'users:(("rpcbind",pid=1139,fd=5),("systemd",pid=1,fd=41))'}]
     """
 
     def parse_content(self, content):
