@@ -72,9 +72,9 @@ class OracleConfig(Parser):
             string
 
     """
-    def __init__(cls, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         deprecated(OracleConfig, "Use the parsers in the `oracle` module", pending=False)
-        super(OracleConfig, cls).__init__(*args, **kwargs)
+        super(OracleConfig, self).__init__(*args, **kwargs)
 
     @property
     def dbname(self):
