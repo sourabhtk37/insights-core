@@ -73,7 +73,7 @@ class OracleConfig(Parser):
 
     """
     def __init__(self, *args, **kwargs):
-        deprecated(OracleConfig, "Use the parsers in the `oracle` module", pending=False)
+        deprecated(OracleConfig, "Use the parsers in the `oracle` module")
         super(OracleConfig, self).__init__(*args, **kwargs)
 
     @property
