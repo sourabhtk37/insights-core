@@ -37,17 +37,18 @@ class NTPConfParser(Parser):
     of the found 'server' and 'peer' data (respectively).
 
     Sample Input::
-
-        server 0.rhel.pool.ntp.org iburst
-        server 1.rhel.pool.ntp.org iburst
-        server 2.rhel.pool.ntp.org iburst
-        server 3.rhel.pool.ntp.org iburst
-        # Enable kernel RTC synchronization.
-        rtcsync
-        leapsecmode slew
-        maxslewrate 1000
-        smoothtime 400 0.001 leaponly
-        tinker step 0.9
+        >>> ntp_conf_data = '''
+        ... server 0.rhel.pool.ntp.org iburst
+        ... server 1.rhel.pool.ntp.org iburst
+        ... server 2.rhel.pool.ntp.org iburst
+        ... server 3.rhel.pool.ntp.org iburst
+        ... # Enable kernel RTC synchronization.
+        ... rtcsync
+        ... leapsecmode slew
+        ... maxslewrate 1000
+        ... smoothtime 400 0.001 leaponly
+        ... tinker step 0.9
+        ... '''
 
     Examples:
 
@@ -64,14 +65,16 @@ class NTPConfParser(Parser):
         '0.rhel.pool.ntp.org iburst'
         >>> ntp.data['maxslewrate']
         '1000'
-        >>> ntp.get_param('rtcsync') # See above for fetching single-word options
+        >>> ntp.get_last('rtcsync') # See above for fetching single-word options
         None
-        >>> ntp.get_param('leapsecmode')
+        >>> ntp.get_last('leapsecmode')
         'slew'
-        >>> ntp.get_param('tinker', 'panic', 'none') # Use default value
+        >>> ntp.get_last('tinker', 'panic', 'none') # Use default value
         'none'
-        >>> ntp.get_param('tinker', 'step', '1') # Use value set in file
+        >>> ntp.get_last('tinker', 'step', '1') # Use value set in file
         '0.9'
+        >>> ntp.get_param('tinker', 'step') # Get list of all settings
+        ['0.9']
     """
     def parse_content(self, content):
         data = {}
@@ -98,6 +101,57 @@ class NTPConfParser(Parser):
 
     def get_param(self, keyword, param=None, default=None):
         """
+        Get all the parameters for a given keyword, or default if keyword or
+        parameter are not present in the configuration.
+
+        This finds every declaration of the given parameter (which is the
+        one which takes effect).  If no parameter is given, then the entire
+        line is treated as the parameter.  There is always at least one
+        element returned - the default, or
+
+        Parameters:
+            keyword(str): The keyword name, e.g. 'tinker' or 'driftfile'
+            param(str): The parameter name, e.g. 'panic' or 'step'.  If not
+                given, all the definitions of that keyword are given.
+            default(str): The default (singular) value if the keyword or
+                parameter is not found.  If not given, None is used.
+
+        Returns:
+            list: All the values of the given parameter, or an empty list if
+            not found.
+        """
+        if not keyword or keyword not in self.data:
+            print "no keyword or keyword not found - returning:", [default]
+            return [default]
+        # keyword in data - if no value, we store None, so return that in a list
+        if self.data[keyword] is None:
+            print "keyword present but none - returning [None]"
+            return [None]
+        # If we're not searching for a particular parameter, just return all
+        # the values for this keyword.
+        if not param:
+            print "keyword found but no param - returning all keyword data"
+            return self.data[keyword]
+
+        found = []
+        for line in self.data[keyword]:
+            # Line has already had keyword removed.
+            words = line.strip().split()
+            if len(words) > 1:
+                # Line has param and value - check param:
+                if words[0] == param:
+                    found.append(words[1])
+            else:
+                found.append(words[0])
+        if found == []:
+            print "no params matching in keyword, returning [default]"
+            return [default]
+        else:
+            print "params matched in keyword, returning found"
+            return found
+
+    def get_last(self, keyword, param=None, default=None):
+        """
         Get the parameters for a given keyword, or default if keyword or
         parameter are not present in the configuration.
 
@@ -114,28 +168,7 @@ class NTPConfParser(Parser):
             str or None: The value of the given parameter, or None if not
             found.
         """
-        if not keyword or keyword not in self.data:
-            return default
-        # keyword in data - may be None or list
-        if self.data[keyword] is None:
-            return None
-        # If we're not searching for a particular parameter, just return the
-        # last line.
-        if not param:
-            return self.data[keyword][-1]
-        # Reverse search on parameter so we can exit on first match
-        for line in reversed(self.data[keyword]):
-            # Line has already had keyword removed.
-            words = line.strip().split()
-            if len(words) > 1:
-                # Line has param and value - check param:
-                if words[0] == param:
-                    return ' '.join(words[1:])
-            else:
-                # Line has only value - ignore param, just return the line
-                return line
-        # param not found in any line
-        return default
+        return self.get_param(keyword, param, default)[-1]
 
 
 @parser("chrony.conf")
