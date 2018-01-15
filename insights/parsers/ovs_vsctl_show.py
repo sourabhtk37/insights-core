@@ -33,21 +33,35 @@ output looks like::
 
 Examples:
     >>> ovs = shared[OVSvsctlshow]
-    >>> ovs.get_ovs_version()
+    >>> ovs.data['uuid']  # Basic access to data through dictionary
+    'aa3f16d3-9534-4b74-8e9e-8b0ce94038c5'
+    >>> ovs.get_ovs_version()  # Simple accessor
     '2.3.2'
-    >>> ovs.get_bridge('br-int')['fail_mode']
+    >>> sorted(ovs.data['bridges'].keys())  # What bridges are there?
+    ['br-int', 'br-tun']
+    >>> ovs.data['bridges']['br-int']['fail_mode']  # Direct data access
     'secure'
-    >>> br_tun = ovs.get_bridge('br-tun')
+    >>> ovs.get_bridge('br-int')['fail_mode']  # Access through method
+    'secure'
+    >>> br_tun = ovs.get_bridge('br-tun')  # Get the bridge data as dictionary
+    >>> type(br_tun)
+    <type 'dict'>
     >>> br_tun['fail_mode']
     'secure'
+    >>> ports = br_tun['ports']  # Bridge ports as list in order from input
+    >>> type(ports)
+    <type 'list'>
     >>> len(br_tun['ports'])
     2
-    >>> ports = br_tun['ports']
     >>> ports[0]['interface']
     'vxlan-aca80118'
     >>> ports[0]['type']
     'vxlan'
-    >>> options = ports[0]['options']
+    >>> options = ports[0]['options']  # Options as dictionary
+    >>> type(options)
+    <type 'dict'>
+    >>> sorted(options.keys())
+    ['df_default', 'in_key', 'local_ip', 'out_key', 'remote_ip']
     >>> options['df_default']  # Note no type conversion on this
     'true'
     >>> options['local_ip']
