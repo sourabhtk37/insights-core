@@ -14,6 +14,7 @@ from OpenSSL import SSL, crypto
 from utilities import (determine_hostname,
                        generate_machine_id,
                        write_to_disk,
+                       write_registered_file,
                        write_unregistered_file)
 from cert_auth import rhsmCertificate
 from constants import InsightsConstants as constants
@@ -620,9 +621,6 @@ class InsightsConnection(object):
         """
         Register this machine
         """
-
-        write_to_disk(constants.unregistered_file, delete=True)
-
         client_hostname = determine_hostname()
         # This will undo a blacklist
         logger.debug("API: Create system")
@@ -639,7 +637,7 @@ class InsightsConnection(object):
 
         message = system.headers.get("x-rh-message", "")
 
-        write_to_disk(constants.registered_file)
+        write_registered_file()
 
         # Do grouping
         if config['group'] is not None:

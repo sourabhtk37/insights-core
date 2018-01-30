@@ -11,7 +11,10 @@ from insights.client.config import CONFIG as config, compile_config
 from insights.client.constants import InsightsConstants as constants
 from insights.client.auto_config import try_auto_configuration
 from insights.client.support import registration_check, InsightsSupport
-from insights.client.utilities import write_to_disk, generate_machine_id, validate_remove_file
+from insights.client.utilities import (write_to_disk,
+                                       generate_machine_id,
+                                       validate_remove_file,
+                                       clear_reg_dotfiles)
 from insights.client.schedule import get_scheduler
 
 logger = logging.getLogger(__name__)
@@ -136,8 +139,7 @@ def post_update():
     if config['reregister']:
         new = True
         config['register'] = True
-        write_to_disk(constants.registered_file, delete=True)
-        write_to_disk(constants.registered_file, delete=True)
+        clear_reg_dotfiles()
         write_to_disk(constants.machine_id_file, delete=True)
     logger.debug('Machine-id: %s', generate_machine_id(new))
 

@@ -52,11 +52,24 @@ def get_time():
     return datetime.datetime.isoformat(datetime.datetime.now())
 
 
+def write_registered_file():
+    """
+    Write .registered out to disk
+    """
+    if not os.path.isfile(constants.registered_file):
+        write_to_disk(constants.registered_file)
+        write_to_disk(constants.registered_file_bc)
+    # delete any stray unregistered
+    write_to_disk(constants.unregistered_file, delete=True)
+    write_to_disk(constants.unregistered_file_bc, delete=True)
+
+
 def write_unregistered_file(date=None):
     """
     Write .unregistered out to disk
     """
     write_to_disk(constants.registered_file, delete=True)
+    write_to_disk(constants.registered_file_bc, delete=True)
     rc = 0
     if date is None:
         date = get_time()
@@ -64,7 +77,18 @@ def write_unregistered_file(date=None):
         rc = 1
 
     write_to_disk(constants.unregistered_file, content=str(date))
+    write_to_disk(constants.unregistered_file_bc, content=str(date))
     return rc
+
+
+def clear_reg_dotfiles():
+    """
+    Clear any local records
+    """
+    write_to_disk(constants.registered_file, delete=True)
+    write_to_disk(constants.registered_file_bc, delete=True)
+    write_to_disk(constants.unregistered_file, delete=True)
+    write_to_disk(constants.unregistered_file_bc, delete=True)
 
 
 def write_to_disk(filename, delete=False, content=get_time()):

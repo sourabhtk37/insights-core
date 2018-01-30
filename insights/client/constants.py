@@ -13,6 +13,7 @@ class InsightsConstants(object):
     user_agent = os.path.join(app_name, package_info["VERSION"])
     log_dir = os.path.join(os.sep, 'var', 'log', app_name)
     default_conf_dir = '/etc/insights-client'
+    simple_find_replace = '/etc/redhat-access-insights'
     default_sed_file = os.path.join(default_conf_dir, '.exp.sed')
     base_url = ''
     collection_rules_file = os.path.join(default_conf_dir, '.cache.json')
@@ -21,6 +22,8 @@ class InsightsConstants(object):
     collection_remove_file = os.path.join(default_conf_dir, collection_remove_file_name)
     unregistered_file = os.path.join(default_conf_dir, '.unregistered')
     registered_file = os.path.join(default_conf_dir, '.registered')
+    unregistered_file_bc = os.path.join(simple_find_replace, '.unregistered')
+    registered_file_bc = os.path.join(simple_find_replace, '.registered')
     lastupload_file = os.path.join(default_conf_dir, '.lastupload')
     pub_gpg_path = os.path.join(default_conf_dir, 'redhattools.pub.gpg')
     machine_id_file = os.path.join(default_conf_dir, 'machine-id')

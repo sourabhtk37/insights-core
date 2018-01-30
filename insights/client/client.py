@@ -11,7 +11,9 @@ from auto_config import (_try_satellite6_configuration,
 from utilities import (generate_machine_id,
                        generate_analysis_target_id,
                        write_to_disk,
+                       write_registered_file,
                        write_unregistered_file,
+                       clear_reg_dotfiles,
                        determine_hostname)
 from collection_rules import InsightsConfig
 from data_collector import DataCollector
@@ -123,15 +125,11 @@ def _is_client_registered():
             # no record of system in remote
             msg = '\n'.join([msg_notyet, msg_doreg])
             # clear any local records
-            write_to_disk(constants.registered_file, delete=True)
-            write_to_disk(constants.unregistered_file, delete=True)
+            clear_reg_dotfiles()
             return msg, False
     else:
         # API confirms reg
-        if not os.path.isfile(constants.registered_file):
-            write_to_disk(constants.registered_file)
-        # delete any stray unregistered
-        write_to_disk(constants.unregistered_file, delete=True)
+        write_registered_file()
         return '', True
 
 
@@ -147,7 +145,7 @@ def try_register():
     if reg_check['status']:
         logger.info('This host has already been registered.')
         # regenerate the .registered file
-        write_to_disk(constants.registered_file)
+        write_registered_file()
         return True
     if reg_check['unreachable']:
         logger.error(reg_check['messages'][1])
@@ -194,8 +192,7 @@ def handle_registration():
         logger.debug('Re-register set, forcing registration.')
         new = True
         config['register'] = True
-        write_to_disk(constants.registered_file, delete=True)
-        write_to_disk(constants.unregistered_file, delete=True)
+        clear_reg_dotfiles()
         write_to_disk(constants.machine_id_file, delete=True)
     logger.debug('Machine-id: %s', generate_machine_id(new))
 
