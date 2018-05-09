@@ -261,6 +261,8 @@ class DefaultSpecs(Specs):
     ip_route_show_table_all = simple_command("/sbin/ip route show table all")
     ip_s_link = simple_command("/sbin/ip -s link")
     ipaupgrade_log = simple_file("/var/log/ipaupgrade.log")
+    ipcs_m = simple_command("/usr/bin/ipcs -m")
+    ipcs_mp = simple_command("/usr/bin/ipcs -mp")
     ipcs_s = simple_command("/usr/bin/ipcs -s")
 
     @datasource(ipcs_s)

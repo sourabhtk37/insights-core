@@ -1,4 +1,4 @@
-from insights.parsers.ipcs_sem import IpcsS, IpcsSI
+from insights.parsers.ipcs import IpcsS, IpcsSI
 from insights.tests import context_wrap
 
 IPCS_S = """

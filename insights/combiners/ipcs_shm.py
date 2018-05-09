@@ -1,6 +1,6 @@
 """
-Ipcs Semaphores
-===============
+Ipcs Shared Memory Segments
+===========================
 
 Combiner for parsing all semaphores. It uses the results of the
 ``IpcsS`` and ``IpcsSI`` parsers to collect complete semaphore information,and
@@ -9,31 +9,34 @@ use ``PsAuxcww`` parsers to determine if one semaphore is orphan.
 """
 
 from insights.core.plugins import combiner
-from insights.parsers.ps import PsAuxww
+from insights.parsers.ps import PsAuxcww
 from insights.parsers.ipcs import IpcsS, IpcsSI
 
 
-class IpcsSemaphore(object):
+class IpcsShmSeg(object):
     """
     Class for holding information about one semaphore.
 
     """
     def __init__(self, data):
-        self.semid = None
+        self.shmid = None
         """str: Semaphore ID."""
         self.owner = None
         """str: Owner of the semaphore."""
+        self.bytes= 0
+        """str: Owner of the semaphore."""
         self.is_orphan = False
         """bool: Is it an orphan semaphore?"""
-        self.pid_list = []
+        self.lpid = None
         """list: List of the related PID."""
+        self.cpid = None
 
         for k, v in data.items():
             setattr(self, k, v)
 
 
-@combiner(IpcsS, IpcsSI, PsAuxww)
-class IpcsSemaphores(object):
+@combiner(IpcsM, IpcsMP, PsAuxkww)
+class IpcsShmSegs(object):
     """
     Class for parsing all semaphores. Will generate IpcsSemaphore objects for
     each semaphores.
@@ -57,19 +60,19 @@ class IpcsSemaphores(object):
         <IpcsSemaphore object at 0x7ffa907bda10>
 
     """
-    def __init__(self, sem_s, sem_si, ps):
+    def __init__(self, ipcs_m, ipcs_mp, ps):
         pids = ps.running_pids()
-        self._all_sems = {}
-        self._orphan_sems = []
-        for sem in sem_si:
-            semid = sem.semid
-            pid_list = sem.pid_list
-            data = sem_s.get(semid)
-            data['semid'] = semid
-            data['pid_list'] = pid_list
+        self._all_shms = {}
+        self._orphan_shms = []
+        for shm in ipcs_mp:
+            data['shmid'] = shm.shmid
+            data['bytes'] = 0
+            if shm.shmid in ipcs_m:
+                b_size = ipcs_m[shm.shmid].get('bytes')
+                data['bytes'] = int(b_size) if b_size.isdigit() else 0
             # check if it is orphan
             is_orphan = False
-            if '0' not in pid_list and all(p not in pids for p in pid_list):
+            if all(p not in pids for p in (shm.cpid, shm.lpid)):
                 is_orphan = True
             data['is_orphan'] = is_orphan
             sem_obj = IpcsSemaphore(data)

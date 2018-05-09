@@ -154,6 +154,8 @@ class Specs(SpecSet):
     ip6tables = RegistryPoint()
     ip_addr = RegistryPoint()
     ipaupgrade_log = RegistryPoint()
+    ipcs_m = RegistryPoint()
+    ipcs_mp = RegistryPoint()
     ipcs_s_i = RegistryPoint(multi_output=True)
     ipcs_s = RegistryPoint()
     ip_route_show_table_all = RegistryPoint()
