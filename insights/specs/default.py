@@ -528,6 +528,7 @@ class DefaultSpecs(Specs):
     rpm_V_packages = simple_command("/usr/bin/rpm -V coreutils procps procps-ng shadow-utils passwd sudo")
     rsyslog_conf = simple_file("/etc/rsyslog.conf")
     samba = simple_file("/etc/samba/smb.conf")
+    sap_hxeadm_hdb_version = simple_command("/bin/su hxeadm -lc 'HDB version'")
     saphostctl_getcimobject_sapinstance = simple_command("/usr/sap/hostctrl/exe/saphostctrl -function GetCIMObject -enuminstances SAPInstance")
     satellite_version_rb = simple_file("/usr/share/foreman/lib/satellite/version.rb")
     block_devices = listdir("/sys/block")
