@@ -188,7 +188,7 @@ class InputData(object):
                 content_iter = list(apply_filters(spec, content_iter))
 
         content_provider = ContentProvider()
-        content_provider.path = path
+        content_provider.root = "/"
         content_provider.relative_path = path
         content_provider._content = content_iter
 

@@ -484,10 +484,13 @@ class Broker(object):
         self.tracebacks = {}
         self.exec_times = {}
 
-        self.observers = defaultdict(set)
-        self.observers[ComponentType] = set()
-        for k, v in TYPE_OBSERVERS.items():
-            self.observers[k] = set(v)
+        if seed_broker:
+            self.observers = seed_broker.observers
+        else:
+            self.observers = defaultdict(set)
+            self.observers[ComponentType] = set()
+            for k, v in TYPE_OBSERVERS.items():
+                self.observers[k] = set(v)
 
     def observer(self, component_type=ComponentType):
         def inner(func):
