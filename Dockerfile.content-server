@@ -1,0 +1,8 @@
+# docker build -t content-server-layer4-core -f Dockerfile.content-server .
+#
+# Need to use dockerfilePath in the buildConfig on OpenShift
+# https://docs.openshift.com/dedicated/dev_guide/builds/build_strategies.html#dockerfile-path
+FROM content-server-layer3-plugins
+
+COPY . ../insights-core
+RUN scl enable python27 "pip install -e ../insights-core"
