@@ -153,7 +153,7 @@ class InsightsFile(InsightsSpec):
 
         cmd = []
         cmd.append('sed'.encode('utf-8'))
-        cmd.append('-rf'.encode('utf-8'))
+        cmd.append('-Ef'.encode('utf-8'))
         cmd.append(constants.default_sed_file.encode('utf-8'))
         cmd.append(self.real_path.encode('utf8'))
         sedcmd = Popen(cmd,
