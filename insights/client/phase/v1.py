@@ -10,7 +10,7 @@ from insights.client import InsightsClient
 from insights.client.config import InsightsConfig
 from insights.client.constants import InsightsConstants as constants
 from insights.client.auto_config import try_auto_configuration
-from insights.client.support import registration_check, InsightsSupport
+from insights.client.support import InsightsSupport
 from insights.client.utilities import validate_remove_file
 from insights.client.schedule import get_scheduler
 
@@ -100,7 +100,7 @@ def pre_update(client, config):
             sys.exit(constants.sig_kill_bad)
 
     if config.support:
-        support = InsightsSupport()
+        support = InsightsSupport(config)
         support.collect_support_info()
         sys.exit(constants.sig_kill_ok)
 
@@ -115,7 +115,7 @@ def update(client, config):
 def post_update(client, config):
     logger.debug("CONFIG: %s", config)
     if config.status:
-        reg_check = registration_check(client.get_connection())
+        reg_check = client.get_registration_status()
         for msg in reg_check['messages']:
             logger.info(msg)
         sys.exit(constants.sig_kill_ok)
@@ -135,6 +135,13 @@ def post_update(client, config):
         logger.debug(
             'Running client in container mode. Bypassing registration.')
         return
+
+    if config.display_name and not config.register:
+        # setting display name independent of registration
+        if client.set_display_name(config.display_name):
+            sys.exit(constants.sig_kill_ok)
+        else:
+            sys.exit(constants.sig_kill_bad)
 
     reg = client.register()
     if reg is None:
@@ -165,6 +172,23 @@ def collect_and_output(client, config):
             resp = client.upload(tar_file)
         else:
             logger.info('Archive saved at %s', tar_file)
-        if resp and config["to_json"]:
-            print(json.dumps(resp))
+        if resp:
+            if config["to_json"]:
+                print(json.dumps(resp))
+
+            # delete the archive
+            if config.keep_archive:
+                logger.info('Insights archive retained in ' + tar_file)
+            else:
+                client.delete_archive(tar_file, delete_parent_dir=True)
+
+            # if we are rotating the eggs and success on upload do rotation
+            try:
+                client.rotate_eggs()
+            except IOError:
+                message = ("Failed to rotate %s to %s" %
+                           (constants.insights_core_newest,
+                            constants.insights_core_last_stable))
+                logger.debug(message)
+                raise IOError(message)
     sys.exit()
